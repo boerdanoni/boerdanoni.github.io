@@ -4,12 +4,12 @@
  * 
  * Source by tickle
  * Created : 2018/10/08
- * Revised : 2024/01/12
+ * Revised : 2024/02/16
  * 
  * https://github.com/cwtickle/danoniplus
  */
-const g_version = `Ver 34.7.0`;
-const g_revisedDate = `2024/01/12`;
+const g_version = `Ver 35.3.0`;
+const g_revisedDate = `2024/02/16`;
 
 // カスタム用バージョン (danoni_custom.js 等で指定可)
 let g_localVersion = ``;
@@ -953,7 +953,7 @@ const makeColorGradation = (_colorStr, { _defaultColorgrd = g_headerObj.defaultC
 	const colorArray = tmpColorStr[0].split(`:`);
 	colorArray.forEach((colorCd, j) => {
 		colorArray[j] = colorCdPadding(_colorCdPaddingUse, colorToHex(colorCd.replaceAll(`0x`, `#`)));
-		if (isColorCd(colorCd) && colorCd.length === 7) {
+		if (isColorCd(colorArray[j]) && colorArray[j].length === 7) {
 			colorArray[j] += alphaVal;
 		}
 	});
@@ -2138,9 +2138,10 @@ const initialControl = async () => {
  * 作品別ローカルストレージの読み込み・初期設定
  */
 const loadLocalStorage = _ => {
-	// URLからscoreIdを削除
+	// URLからscoreId, h(高さ)を削除
 	const url = new URL(location.href);
-	url.searchParams.delete('scoreId');
+	url.searchParams.delete(`scoreId`);
+	url.searchParams.delete(`h`);
 	g_localStorageUrl = url.toString();
 
 	/**
@@ -2730,9 +2731,10 @@ const headerConvert = _dosObj => {
 		$id(`canvas-frame`).width = wUnit(g_sWidth);
 	}
 	// 高さ設定
-	if (hasVal(_dosObj.windowHeight) || hasVal(g_presetObj.autoMinHeight)) {
-		g_sHeight = Math.max(setIntVal(_dosObj.windowHeight, g_sHeight),
-			setIntVal(g_presetObj.autoMinHeight, g_sHeight), g_sHeight);
+	obj.heightVariable = getQueryParamVal(`h`) !== null && (_dosObj.heightVariable || g_presetObj.heightVariable || false);
+	if (hasVal(_dosObj.windowHeight || g_presetObj.autoMinHeight) || obj.heightVariable) {
+		g_sHeight = Math.max(setIntVal(_dosObj.windowHeight, g_presetObj.autoMinHeight ?? g_sHeight),
+			setIntVal(getQueryParamVal(`h`), g_sHeight), g_sHeight);
 		$id(`canvas-frame`).height = wUnit(g_sHeight);
 	}
 
@@ -3021,7 +3023,9 @@ const headerConvert = _dosObj => {
 
 	// プレイサイズ(X方向, Y方向)
 	obj.playingWidth = setIntVal(_dosObj.playingWidth, g_presetObj.playingWidth ?? `default`);
-	obj.playingHeight = setIntVal(_dosObj.playingHeight, g_presetObj.playingHeight ?? g_sHeight);
+	const tmpPlayingHeight = setIntVal(_dosObj.playingHeight, g_presetObj.playingHeight ?? g_sHeight);
+	obj.playingHeight = Math.max(obj.heightVariable ?
+		setIntVal(getQueryParamVal(`h`) - (g_sHeight - tmpPlayingHeight), tmpPlayingHeight) : tmpPlayingHeight, 400);
 
 	// プレイ左上位置(X座標, Y座標)
 	obj.playingX = setIntVal(_dosObj.playingX, g_presetObj.playingX ?? 0);
@@ -3035,6 +3039,9 @@ const headerConvert = _dosObj => {
 	g_posObj.reverseStepY = g_posObj.distY - g_posObj.stepY - g_posObj.stepDiffY - C_ARW_WIDTH;
 	g_posObj.arrowHeight = obj.playingHeight + g_posObj.stepYR - g_posObj.stepDiffY * 2;
 	obj.bottomWordSetFlg = setBoolVal(_dosObj.bottomWordSet);
+
+	// ウィンドウサイズ(高さ)とステップゾーン位置の組み合わせで基準速度を変更
+	obj.baseSpeed = 1 + ((g_posObj.distY - (g_posObj.stepY - C_STEP_Y) * 2) / (500 - C_STEP_Y) - 1) * 0.85;
 
 	// 矢印・フリーズアロー判定位置補正
 	g_diffObj.arrowJdgY = (isNaN(parseFloat(_dosObj.arrowJdgY)) ? 0 : parseFloat(_dosObj.arrowJdgY));
@@ -3692,6 +3699,41 @@ const keysConvert = (_dosObj, { keyExtraList = _dosObj.keyExtraList?.split(`,`) 
 		makeBaseArray(_str.split(`/`).map(n => getKeyCtrlVal(n)), g_keyObj.minKeyCtrlNum, 0);
 	const toSplitArrayStr = _str => _str.split(`/`).map(n => n);
 
+	// 略記記法を元の文字列に復元後、配列に変換 (1...3,5...7 -> 1,2,3,5,6,7)
+	const toOriginalArray = (_val, _func) => _val?.split(`,`).map(n => _func(n)).join(`,`).split(`,`);
+
+	/**
+	 * 略記記法を元の文字列に変換 (1...5 -> 1,2,3,4,5 / 3...+4 -> 3,4,5,6,7)
+	 * @param {string} _str 
+	 */
+	const toFloatStr = _str => {
+		const nums = _str?.split(`...`);
+		const bottomMark = nums[0].startsWith(`b`) ? `b` : ``;
+		const [startN, endN] = [parseFloat(bottomMark === `b` ? nums[0].slice(1) : nums[0]), parseFloat(nums[1])];
+
+		if (nums.length === 2 && !isNaN(startN) && !isNaN(endN)) {
+			const endN2 = nums[1].startsWith(`+`) ? startN + endN : endN;
+			const arr = [];
+			for (let k = startN; k <= endN2; k++) {
+				arr.push(`${bottomMark}${k}`);
+			}
+			return arr.join(`,`);
+		} else {
+			return _str;
+		}
+	};
+
+	/**
+	 * 略記記法を元の文字列に変換 (1@:5 -> 1,1,1,1,1 / onigiri!giko!c@:2 -> onigiri,giko,c,onigiri,giko,c)
+	 * @param {string} _str
+	 */
+	const toSameValStr = _str => {
+		const nums = _str?.split(`@:`);
+		const groupStr = toFloatStr(nums[0]).split(`!`).join(`,`);
+		return nums.length === 2 && !isNaN(parseInt(nums[1])) ?
+			[...Array(Math.floor(parseInt(nums[1])))].fill(groupStr).join(`,`) : groupStr;
+	};
+
 	/**
 	 * キーパターン（相対パターン）をキーパターン（実際のパターン番号）に変換
 	 * 例) 12_(0) -> 12_4
@@ -3744,8 +3786,9 @@ const keysConvert = (_dosObj, { keyExtraList = _dosObj.keyExtraList?.split(`,`) 
 					continue;
 				}
 				// |keyCtrl9j=Tab,7_0,Enter| -> |keyCtrl9j=Tab,S,D,F,Space,J,K,L,Enter| のように補完
+				// |pos9j=0..4,6..9| -> |pos9j=0,1,2,3,4,6,7,8,9|
 				g_keyObj[`${keyheader}_${k + dfPtn}`] =
-					tmpArray[k].split(`,`).map(n =>
+					toOriginalArray(tmpArray[k], toSameValStr).map(n =>
 						structuredClone(g_keyObj[`${_name}${getKeyPtnName(n)}`]) ?? [_convFunc(n)]
 					).flat();
 				if (baseCopyFlg) {
@@ -3796,7 +3839,7 @@ const keysConvert = (_dosObj, { keyExtraList = _dosObj.keyExtraList?.split(`,`) 
 						// 通常の指定方法 (例: |shuffle8i=1,1,1,2,0,0,0,0/1,1,1,1,0,0,0,0| )の場合の取り込み
 						// 部分的にキーパターン指定があった場合は既存パターンを展開 (例: |shuffle9j=2,7_0_0,2|)
 						g_keyObj[`${keyheader}_${k + dfPtn}_${ptnCnt}`] =
-							makeBaseArray(list.split(`,`).map(n =>
+							makeBaseArray(toOriginalArray(list, toSameValStr).map(n =>
 								structuredClone(g_keyObj[`${_name}${getKeyPtnName(n)}`]) ??
 								[isNaN(parseInt(n)) ? n : parseInt(n, 10)]
 							).flat(), g_keyObj[`${g_keyObj.defaultProp}${_key}_${k + dfPtn}`].length, 0);
@@ -3872,7 +3915,7 @@ const keysConvert = (_dosObj, { keyExtraList = _dosObj.keyExtraList?.split(`,`) 
 					// 部分的にキーパターン指定があった場合は既存パターンを展開 (例: |scroll9j=Cross::1,7_0,1|)
 					const tmpParamPair = pairs.split(`::`);
 					g_keyObj[pairName][tmpParamPair[0]] =
-						makeBaseArray(tmpParamPair[1]?.split(`,`).map(n =>
+						makeBaseArray(toOriginalArray(tmpParamPair[1], toSameValStr)?.map(n =>
 							structuredClone(g_keyObj[`${_pairName}${getKeyPtnName(n)}`]?.[tmpParamPair[0]]) ??
 							[n === `-` ? -1 : parseInt(n, 10)]
 						).flat(), g_keyObj[`${g_keyObj.defaultProp}${_key}_${k + dfPtn}`].length, _defaultVal);
@@ -3969,6 +4012,9 @@ const keysConvert = (_dosObj, { keyExtraList = _dosObj.keyExtraList?.split(`,`) 
 
 		// キーグループ (keyGroupX_Y)
 		newKeyMultiParam(newKey, `keyGroup`, toSplitArrayStr);
+
+		// キーグループの表示制御 (keyGroupOrderX_Y)
+		newKeyMultiParam(newKey, `keyGroupOrder`, toString);
 
 		// スクロールパターン (scrollX_Y)
 		// |scroll(newKey)=Cross::1,1,-1,-1,-1,1,1/Split::1,1,1,-1,-1,-1,-1$...|
@@ -4479,6 +4525,17 @@ const setSpriteList = _settingList => {
 const inputSlider = (_slider, _link) => {
 	const value = parseInt(_slider.value);
 	_link.textContent = `${value}${g_lblNameObj.percent}`;
+	return value;
+};
+
+/**
+ * スライダー共通処理
+ * @param {object} _slider 
+ * @param {object} _link 
+ */
+const inputSliderAppearance = (_slider, _link) => {
+	const value = parseInt(_slider.value);
+	_link.textContent = `${g_hidSudObj.distH[g_stateObj.appearance](value)}`;
 	return value;
 };
 
@@ -5167,6 +5224,11 @@ const createOptionWindow = _sprite => {
 		skipTerms: g_settings.speedTerms, hiddenBtn: true, scLabel: g_lblNameObj.sc_speed, roundNum: 5,
 		unitName: ` ${g_lblNameObj.multi}`,
 	});
+	if (g_headerObj.baseSpeed !== 1) {
+		divRoot.appendChild(
+			createDivCss2Label(`lblBaseSpd`, `Δv: ${Math.round(g_headerObj.baseSpeed * 100) / 100}x`, { x: g_sWidth - 100, y: 0, w: 100, h: 20, siz: 14 })
+		);
+	}
 
 	/**
 	 * 譜面明細子画面・グラフの作成
@@ -5992,7 +6054,7 @@ const createSettingsDisplayWindow = _sprite => {
 
 	// Hidden+/Sudden+初期値用スライダー、ロックボタン
 	multiAppend(spriteList.appearance,
-		createDivCss2Label(`lblAppearancePos`, `${g_hidSudObj.filterPos}${g_lblNameObj.percent}`, g_lblPosObj.lblAppearancePos),
+		createDivCss2Label(`lblAppearancePos`, `${g_hidSudObj.distH[g_stateObj.appearance](g_hidSudObj.filterPos)}`, g_lblPosObj.lblAppearancePos),
 		createDivCss2Label(`lblAppearanceBar`, `<input id="appearanceSlider" type="range" value="${g_hidSudObj.filterPos}" min="0" max="100" step="1">`,
 			g_lblPosObj.lblAppearanceBar),
 		createCss2Button(`lnkLockBtn`, g_lblNameObj.filterLock, evt => setLockView(evt.target),
@@ -6012,11 +6074,13 @@ const createSettingsDisplayWindow = _sprite => {
 
 	const appearanceSlider = document.getElementById(`appearanceSlider`);
 	appearanceSlider.addEventListener(`input`, _ =>
-		g_hidSudObj.filterPos = inputSlider(appearanceSlider, lblAppearancePos), false);
+		g_hidSudObj.filterPos = inputSliderAppearance(appearanceSlider, lblAppearancePos), false);
 
-	const dispAppearanceSlider = _ =>
-		[`lblAppearancePos`, `lblAppearanceBar`, `lnkLockBtn`, `lnkfilterLine`].forEach(obj =>
+	const dispAppearanceSlider = _ => {
+		[`lblAppearanceBar`, `lnkLockBtn`, `lnkfilterLine`].forEach(obj =>
 			$id(obj).visibility = g_appearanceRanges.includes(g_stateObj.appearance) ? `Visible` : `Hidden`);
+		inputSliderAppearance(appearanceSlider, lblAppearancePos);
+	};
 	dispAppearanceSlider();
 
 	// ---------------------------------------------------
@@ -6123,7 +6187,8 @@ const keyConfigInit = (_kcType = g_kcType) => {
 	const maxLeftX = Math.min(0, (kWidth - C_ARW_WIDTH) / 2 - maxLeftPos * g_keyObj.blank);
 
 	g_keycons.cursorNumList = [...Array(keyNum).keys()].map(i => i);
-	const configKeyGroupList = g_headerObj.keyGroupOrder[g_stateObj.scoreId] ?? tkObj.keyGroupList;
+	const configKeyGroupList = g_headerObj.keyGroupOrder[g_stateObj.scoreId] ??
+		g_keyObj[`keyGroupOrder${keyCtrlPtn}`] ?? tkObj.keyGroupList;
 
 	/**
 	 * keyconSpriteのスクロール位置調整
@@ -6509,14 +6574,18 @@ const keyConfigInit = (_kcType = g_kcType) => {
 				appearConfigView(j, C_DIS_INHERIT);
 			}
 		}
-		changeConfigCursor(0);
+		if (g_keycons.cursorNumList.length === 0) {
+			appearConfigSteps(0);
+		} else {
+			changeConfigCursor(0);
 
-		// keySwitchボタンを一旦非選択にして、選択中のものを再度色付け
-		if (configKeyGroupList.length > 1) {
-			for (let j = 0; j < configKeyGroupList.length; j++) {
-				document.getElementById(`key${j}`).classList.replace(g_cssObj.button_Next, g_cssObj.button_Mini);
+			// keySwitchボタンを一旦非選択にして、選択中のものを再度色付け
+			if (configKeyGroupList.length > 1) {
+				for (let j = 0; j < configKeyGroupList.length; j++) {
+					document.getElementById(`key${j}`).classList.replace(g_cssObj.button_Next, g_cssObj.button_Mini);
+				}
+				document.getElementById(`key${_num}`).classList.replace(g_cssObj.button_Mini, g_cssObj.button_Next);
 			}
-			document.getElementById(`key${_num}`).classList.replace(g_cssObj.button_Mini, g_cssObj.button_Next);
 		}
 	};
 
@@ -7924,11 +7993,11 @@ const getStartFrame = (_lastFrame, _fadein = 0, _scoreId = g_stateObj.scoreId) =
 const setSpeedOnFrame = (_speedData, _lastFrame) => {
 
 	const speedOnFrame = [];
-	let currentSpeed = g_stateObj.speed * 2;
+	let currentSpeed = g_stateObj.speed * g_headerObj.baseSpeed * 2;
 
 	for (let frm = 0, s = 0; frm <= _lastFrame; frm++) {
 		while (frm >= _speedData?.[s]) {
-			currentSpeed = _speedData[s + 1] * g_stateObj.speed * 2;
+			currentSpeed = _speedData[s + 1] * g_stateObj.speed * g_headerObj.baseSpeed * 2;
 			s += 2;
 		}
 		speedOnFrame[frm] = currentSpeed;

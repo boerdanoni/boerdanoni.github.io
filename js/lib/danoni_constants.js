@@ -5,7 +5,7 @@
  *
  * Source by tickle
  * Created : 2019/11/19
- * Revised : 2024/01/12 (v34.7.0)
+ * Revised : 2024/02/08 (v35.2.1)
  *
  * https://github.com/cwtickle/danoniplus
  */
@@ -1032,6 +1032,13 @@ let g_storeSettingsEx = [`d_stepzone`, `d_judgment`, `d_fastslow`, `d_lifegauge`
 
 let g_canDisabledSettings = [`motion`, `scroll`, `shuffle`, `autoPlay`, `gauge`, `excessive`, `appearance`];
 
+const g_hidSudFunc = {
+    filterPos: _filterPos => `${_filterPos}${g_lblNameObj.percent}`,
+    range: _ => `${Math.round(g_posObj.arrowHeight - g_posObj.stepY)}px`,
+    hidden: _filterPos => `${Math.min(Math.round(g_posObj.arrowHeight * (100 - _filterPos) / 100), g_posObj.arrowHeight - g_posObj.stepY)}`,
+    sudden: _filterPos => `${Math.max(Math.round(g_posObj.arrowHeight * (100 - _filterPos) / 100) - g_posObj.stepY, 0)}`,
+};
+
 const g_hidSudObj = {
     filterPos: 10,
 
@@ -1061,6 +1068,15 @@ const g_hidSudObj = {
         'Hidden+': { OFF: 0, ON: 1, },
         'Sudden+': { OFF: 1, ON: 0, },
         'Hid&Sud+': { OFF: 1, ON: 0, },
+    },
+    distH: {
+        'Visible': _ => ``,
+        'Hidden': _ => `${g_hidSudFunc.filterPos(50)} (${g_hidSudFunc.hidden(50)} / ${g_hidSudFunc.range()})`,
+        'Hidden+': (_filterPos) => `${g_hidSudFunc.filterPos(_filterPos)} (${g_hidSudFunc.hidden(_filterPos)} / ${g_hidSudFunc.range()})`,
+        'Sudden': _ => `${g_hidSudFunc.filterPos(40)} (${g_hidSudFunc.sudden(40)} / ${g_hidSudFunc.range()})`,
+        'Sudden+': (_filterPos) => `${g_hidSudFunc.filterPos(_filterPos)} (${g_hidSudFunc.sudden(_filterPos)} / ${g_hidSudFunc.range()})`,
+        'Hid&Sud+': (_filterPos) => `${g_hidSudFunc.filterPos(_filterPos)} (${Math.max(g_hidSudFunc.sudden(_filterPos)
+            - (g_posObj.arrowHeight - g_posObj.stepY - g_hidSudFunc.hidden(_filterPos)), 0)} / ${g_hidSudFunc.range()})`,
     },
 };
 
@@ -1777,6 +1793,13 @@ const g_keyObj = {
     chara5_2: [`left`, `down`, `space`, `up`, `right`],
     chara8_2: [`sleft`, `left`, `leftdia`, `down`, `space`, `up`, `rightdia`, `right`],
 
+    // 頻度の高い譜面データ名パターン
+    // 後で chara4A, chara4A_a, chara4A_b, ... に変換する
+    ptchara4A: [`left`, `down`, `up`, `right`],
+    ptchara3S: [`left`, `leftdia`, `down`],
+    ptchara3J: [`up`, `rightdia`, `right`],
+    ptchara7: [`left`, `leftdia`, `down`, `space`, `up`, `rightdia`, `right`],
+
     // ColorGroup - 1
     //  - 同じ数字が同じグループになる
     color5_0_0: [0, 0, 0, 0, 2],
@@ -1914,6 +1937,12 @@ const g_keyObj = {
     // ShapeGroup - 3 (矢印回転、AAキャラクタ)
     stepRtn17_0_2: [45, 45, 0, 0, -45, -45, -90, -90, `onigiri`, 90, 90, 135, 135, 180, 180, 225, 225],
 
+    // 頻度の高い部分ShapeGroupの定義
+    stepRtn4A: [0, -90, 90, 180],
+    stepRtn3S: [0, -45, -90],
+    stepRtn3J: [90, 135, 180],
+    stepRtn3Z: [`giko`, `onigiri`, `iyo`],
+
     // 各キーの区切り位置
     // - 未指定の場合は下段への折り返し無し
     div9i_0: 6,
@@ -1991,6 +2020,17 @@ const g_keyObj = {
     keyCtrl8_4: [[`Shift`], [`Z`], [`S`], [`X`], [`D`], [`C`], [`F`], [`V`]],
 
     keyCtrl8_5: [[`Shift`], [`Z`], [`S`], [`X`, `C`], [`D`, `F`], [`V`], [`G`], [`B`]],
+
+    // 頻度の高い部分キーコンフィグの定義
+    keyCtrl4A: [[`Left`], [`Down`], [`Up`], [`Right`]],
+    keyCtrl4S: [[`S`], [`D`], [`E`, `R`], [`F`]],
+    keyCtrl4J: [[`J`], [`K`], [`I`, `O`], [`L`]],
+    keyCtrl4W: [[`W`], [`E`], [`D3`, `D4`], [`R`]],
+    keyCtrl4U: [[`U`], [`I`], [`D8`, `D9`], [`O`]],
+    keyCtrl3S: [[`S`], [`D`], [`F`]],
+    keyCtrl3J: [[`J`], [`K`], [`L`]],
+    keyCtrl3W: [[`W`], [`E`], [`R`]],
+    keyCtrl3Z: [[`Z`], [`X`], [`C`]],
 
     // 隣接するステップゾーン間の距離
     blank: 55,
@@ -2350,6 +2390,13 @@ Object.keys(g_copyKeyPtn).forEach(keyPtnTo => {
     } else if (g_keyObj[`transKey${keyPtnTo}`] === undefined && keyPtnFrom.split(`_`)[0] !== keyPtnTo.split(`_`)[0]) {
         g_keyObj[`transKey${keyPtnTo}`] = keyPtnFrom.split(`_`)[0];
     }
+});
+
+// 頻度の高い譜面データ名の自動生成 (left -> aleft, bleft, ..., zleft を生成)
+Object.keys(g_keyObj).filter(val => val.startsWith(`ptchara`)).forEach(charaPtn => {
+    g_keyObj[`${charaPtn.slice(2)}`] = g_keyObj[charaPtn].concat();
+    [...Array(26)].map((a, b) => (10 + b).toString(36)).forEach(alphabet =>
+        g_keyObj[`${charaPtn.slice(2)}_${alphabet}`] = g_keyObj[charaPtn].map(str => `${alphabet}${str}`));
 });
 
 // デフォルト配列のコピー (g_keyObj.aaa_X から g_keyObj.aaa_Xd を作成)
