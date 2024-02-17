@@ -34,6 +34,7 @@ div[id^="stepHit"] {
   justify-content: center;
   align-items: center;
   margin: auto;
+  font-family: Arial;
   font-size: 42px;
   font-weight: bold;
   color: navy;
@@ -52,6 +53,7 @@ div[id^="stepHit"] {
   /* 下にローマ字表示するために上寄せ */
   align-items: center;
   margin: auto;
+  font-family: Arial;
   font-size: 28px;
   font-weight: bold;
   color: navy;
@@ -66,6 +68,7 @@ div[id^="stepHit"] {
   width: 47.5px;
   height: 47.5px;
   text-align: center;
+  font-family: Arial;
   font-size: 18px;
   font-weight: bold;
   color: #666666;
@@ -73,6 +76,7 @@ div[id^="stepHit"] {
 }
 
 .lyric {
+  font-family: Arial;
   font-size: 22px;
   color: #FFFFFF;
 }
