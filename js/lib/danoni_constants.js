@@ -5,7 +5,7 @@
  *
  * Source by tickle
  * Created : 2019/11/19
- * Revised : 2024/02/08 (v35.2.1)
+ * Revised : 2024/03/27 (v35.4.4)
  *
  * https://github.com/cwtickle/danoniplus
  */
@@ -906,7 +906,6 @@ const g_settings = {
 
     scrolls: [],
     scrollNum: 0,
-    scrollFlat: [`Flat`, `R-Flat`],
 
     shuffles: [C_FLG_OFF, `Mirror`, `X-Mirror`, `Turning`, `Random`, `Random+`, `S-Random`, `S-Random+`],
     shuffleNum: 0,
@@ -944,6 +943,29 @@ const g_settings = {
     scoreDetailCursors: [],
 
     scoreDetailTrans: [[`Velocity`, `Speed`], [`DifLevel`, `ToolDif`]],
+
+    // Display設定の拡張用デザイン
+    d_cssBarExName: `RevON`,
+    d_cssBgName: `Default`,
+    d_cssBgExName: `Setting`,
+
+    // Display設定の拡張リスト
+    d_stepZones: [`FlatBar`],
+
+    displayNum: {
+        stepZone: 0,
+        judgment: 0,
+        fastSlow: 0,
+        lifeGauge: 0,
+        score: 0,
+        musicInfo: 0,
+        speed: 0,
+        color: 0,
+        lyrics: 0,
+        background: 0,
+        arrowEffect: 0,
+        special: 0,
+    },
 };
 
 g_settings.volumeNum = g_settings.volumes.length - 1;
@@ -1542,6 +1564,33 @@ const g_shortcutObj = {
         ShiftRight_KeyT: { id: `lnkHitPositionL` },
         KeyT: { id: `lnkHitPositionLL` },
 
+        ShiftLeft_Digit1: { id: `lnkstepZoneR` },
+        ShiftRight_Digit1: { id: `lnkstepZoneR` },
+        ShiftLeft_Digit2: { id: `lnkjudgmentR` },
+        ShiftRight_Digit2: { id: `lnkjudgmentR` },
+        ShiftLeft_Digit3: { id: `lnkfastSlowR` },
+        ShiftRight_Digit3: { id: `lnkfastSlowR` },
+        ShiftLeft_Digit4: { id: `lnklifeGaugeR` },
+        ShiftRight_Digit4: { id: `lnklifeGaugeR` },
+        ShiftLeft_Digit5: { id: `lnkscoreR` },
+        ShiftRight_Digit5: { id: `lnkscoreR` },
+        ShiftLeft_Digit6: { id: `lnkmusicInfoR` },
+        ShiftRight_Digit6: { id: `lnkmusicInfoR` },
+        ShiftLeft_Digit7: { id: `lnkfilterLineR` },
+        ShiftRight_Digit7: { id: `lnkfilterLineR` },
+        ShiftLeft_Digit8: { id: `lnkspeedR` },
+        ShiftRight_Digit8: { id: `lnkspeedR` },
+        ShiftLeft_Digit9: { id: `lnkcolorR` },
+        ShiftRight_Digit9: { id: `lnkcolorR` },
+        ShiftLeft_Digit0: { id: `lnklyricsR` },
+        ShiftRight_Digit0: { id: `lnklyricsR` },
+        ShiftLeft_Semicolon: { id: `lnkbackgroundR` },
+        ShiftRight_Semicolon: { id: `lnkbackgroundR` },
+        ShiftLeft_Minus: { id: `lnkarrowEffectR` },
+        ShiftRight_Minus: { id: `lnkarrowEffectR` },
+        ShiftLeft_Slash: { id: `lnkspecialR` },
+        ShiftRight_Slash: { id: `lnkspecialR` },
+
         Digit1: { id: `lnkstepZone` },
         Digit2: { id: `lnkjudgment` },
         Digit3: { id: `lnkfastSlow` },
@@ -1555,6 +1604,33 @@ const g_shortcutObj = {
         Semicolon: { id: `lnkbackground` },
         Minus: { id: `lnkarrowEffect` },
         Slash: { id: `lnkspecial` },
+
+        ShiftLeft_Numpad1: { id: `lnkstepZoneR` },
+        ShiftRight_Numpad1: { id: `lnkstepZoneR` },
+        ShiftLeft_Numpad2: { id: `lnkjudgmentR` },
+        ShiftRight_Numpad2: { id: `lnkjudgmentR` },
+        ShiftLeft_Numpad3: { id: `lnkfastSlowR` },
+        ShiftRight_Numpad3: { id: `lnkfastSlowR` },
+        ShiftLeft_Numpad4: { id: `lnklifeGaugeR` },
+        ShiftRight_Numpad4: { id: `lnklifeGaugeR` },
+        ShiftLeft_Numpad5: { id: `lnkscoreR` },
+        ShiftRight_Numpad5: { id: `lnkscoreR` },
+        ShiftLeft_Numpad6: { id: `lnkmusicInfoR` },
+        ShiftRight_Numpad6: { id: `lnkmusicInfoR` },
+        ShiftLeft_Numpad7: { id: `lnkfilterLineR` },
+        ShiftRight_Numpad7: { id: `lnkfilterLineR` },
+        ShiftLeft_Numpad8: { id: `lnkspeedR` },
+        ShiftRight_Numpad8: { id: `lnkspeedR` },
+        ShiftLeft_Numpad9: { id: `lnkcolorR` },
+        ShiftRight_Numpad9: { id: `lnkcolorR` },
+        ShiftLeft_Numpad0: { id: `lnklyricsR` },
+        ShiftRight_Numpad0: { id: `lnklyricsR` },
+        ShiftLeft_NumpadAdd: { id: `lnkbackgroundR` },
+        ShiftRight_NumpadAdd: { id: `lnkbackgroundR` },
+        ShiftLeft_NumpadSubtract: { id: `lnkarrowEffectR` },
+        ShiftRight_NumpadSubtract: { id: `lnkarrowEffectR` },
+        ShiftLeft_NumpadDivide: { id: `lnkspecialR` },
+        ShiftRight_NumpadDivide: { id: `lnkspecialR` },
 
         Numpad1: { id: `lnkstepZone` },
         Numpad2: { id: `lnkjudgment` },
@@ -2417,7 +2493,7 @@ g_keycons.groups.forEach(type => {
 const g_keyCopyLists = {
     simpleDef: [`blank`, `scale`],
     simple: [`div`, `divMax`, `blank`, `scale`, `keyRetry`, `keyTitleBack`, `transKey`, `scrollDir`, `assistPos`],
-    multiple: [`chara`, `color`, `stepRtn`, `pos`, `shuffle`, `keyGroup`],
+    multiple: [`chara`, `color`, `stepRtn`, `pos`, `shuffle`, `keyGroup`, `keyGroupOrder`],
 };
 
 // タイトル画面関連のリスト群
@@ -2801,7 +2877,7 @@ const g_lblNameObj = {
     d_Score: `Score`,
     d_MusicInfo: `MusicInfo`,
     d_FilterLine: `FilterLine`,
-    d_Speed: `Speed`,
+    d_Speed: `Velocity`,
     d_Color: `Color`,
     d_Lyrics: `Lyrics`,
     d_Background: `Background`,
@@ -2856,6 +2932,8 @@ const g_lblNameObj = {
     'u_Normal': `Normal`,
     'u_Hard': `Hard`,
     'u_Easy': `Easy`,
+
+    'u_FlatBar': `FlatBar`,
 
     'u_Visible': `Visible`,
     'u_Hidden': `Hidden`,
