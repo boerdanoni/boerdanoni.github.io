@@ -2929,7 +2929,7 @@ const headerConvert = _dosObj => {
 	});
 
 	// フリーズアローのデフォルト色セットの利用有無 (true: 使用, false: 矢印色を優先してセット)
-	obj.defaultFrzColorUse = setBoolVal(_dosObj.defaultFrzColorUse ?? g_presetObj.frzColors, true);
+	obj.defaultFrzColorUse = setBoolVal(_dosObj.defaultFrzColorUse ?? g_presetObj.frzColors, false);
 
 	// 矢印色変化に対応してフリーズアロー色を追随する範囲の設定
 	// (defaultFrzColorUse=false時のみ)
