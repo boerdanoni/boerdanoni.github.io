@@ -4,7 +4,7 @@
   本体cssファイル
 
   Created : 2018/10/08
-  Revised : 2023/11/05 (v34.5.0)
+  Revised : 2024/06/30 (v37.2.1)
 
   https://github.com/cwtickle/danoniplus
 ------------------------------------------ */
@@ -14,6 +14,8 @@
 	position: relative;
 	overflow: hidden;
 	white-space: nowrap;
+	border-top: 1px solid var(--back-border-x, #666666);
+	border-bottom: 1px solid var(--back-border-x, #666666);
 }
 
 #canvas-frame canvas {
@@ -354,12 +356,6 @@ input[type="color"] {
 
 /* スキン定義 ------------------------------------------------------------*/
 
-/* 背景 */
-#canvas-frame {
-	border-top: 1px solid var(--back-border-x, #666666);
-	border-bottom: 1px solid var(--back-border-x, #666666);
-}
-
 #divBack {
 	background: var(--background, linear-gradient(#000000, #222222));
 }
@@ -470,6 +466,23 @@ input[type="color"] {
 	color: var(--settings-fadeinBar-x, #ffffff);
 }
 
+.settings_Difficulty:hover,
+.settings_Speed:hover,
+.settings_Motion:hover,
+.settings_Reverse:hover,
+.settings_Scroll:hover,
+.settings_Shuffle:hover,
+.settings_AutoPlay:hover,
+.settings_Gauge:hover,
+.settings_Adjustment:hover,
+.settings_Fadein:hover,
+.settings_Volume:hover,
+.settings_Appearance:hover,
+.settings_Opacity:hover,
+.settings_HitPosition:hover {
+	border-bottom: solid 1px;
+}
+
 /* 設定画面：ゲージ設定詳細 */
 .settings_lifeVal {
 	color: var(--settings-lifeVal-x, #ff9966);
@@ -495,6 +508,18 @@ input[type="color"] {
 
 .keyconfig_ColorType::first-letter {
 	color: var(--keyconfig-colorType-x, #ffdd99);
+}
+
+.keyconfig_ColorGr::first-letter {
+	color: var(--keyconfig-colorGr-x, var(--keyconfig-colorType-x, #ffdd99));
+}
+
+.keyconfig_ShuffleGr::first-letter {
+	color: var(--keyconfig-shuffleGr-x, var(--settings-shuffle-x, #99ff99));
+}
+
+.keyconfig_StepRtnGr::first-letter {
+	color: var(--keyconfig-stepRtnGr-x, var(--settings-adjustment-x, #99ffff));
 }
 
 .keyconfig_Changekey {
@@ -709,7 +734,8 @@ input[type="color"] {
 }
 
 /* デフォルト */
-.button_Default {
+.button_Default,
+.button_Discord {
 	color: var(--button-color-default-x, #ffffff);
 	background: var(--button-bg-default, #111111);
 }
@@ -783,7 +809,7 @@ input[type="color"] {
 	background: var(--button-bgHover-reset, #009900);
 }
 
-/* ツイート */
+/* X Post */
 .button_Tweet {
 	color: var(--button-color-sns-x, #ffffff);
 	background: var(--button-bg-sns, #113333);
@@ -792,6 +818,12 @@ input[type="color"] {
 .button_Tweet:hover {
 	color: var(--button-colorHover-sns-x, #ffffff);
 	background: var(--button-bgHover-sns, #009999);
+}
+
+/* Discord */
+.button_Discord:hover {
+	color: var(--button-colorHover-default-x, #ffffff);
+	background: var(--button-bgHover-discord, var(--button-bgHover-default, #666699));
 }
 
 /* ボタン：ON/OFF */

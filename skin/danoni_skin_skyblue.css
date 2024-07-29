@@ -5,7 +5,7 @@
   スキンcssファイル (skyblue)
 
   Created : 2019/11/04
-  Revised : 2023/07/29 (v33.0.0)
+  Revised : 2024/05/18 (v36.4.1)
 
   https://github.com/cwtickle/danoniplus
 ------------------------------------------ */
@@ -67,6 +67,9 @@
 	--keyconfig-colorType-x: #773300;
 	--keyconfig-changekey-x: #999900;
 	--keyconfig-defaultkey-x: #000099;
+	/* --keyconfig-colorGr-x: var(--settings-colorType-x); */
+	/* --keyconfig-shuffleGr-x: var(--settings-shuffle-x); */
+	/* --keyconfig-stepRtnGr-x: var(--settings-adjustment-x); */
 
 	/* 判定 */
 	--common-ii: #009999;
@@ -183,6 +186,7 @@
 	--button-color-sns-x: #000000;
 	--button-bgHover-sns: #66ffff;
 	--button-colorHover-sns-x: #000000;
+	--button-bgHover-discord: #bbbbbb;
 
 	/* ON/OFFボタン */
 	--button-color-off-x: #cccccc;

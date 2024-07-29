@@ -5,7 +5,7 @@
  *
  * Source by tickle
  * Created : 2019/11/19
- * Revised : 2024/04/03 (v35.5.0)
+ * Revised : 2024/06/29 (v37.2.0)
  *
  * https://github.com/cwtickle/danoniplus
  */
@@ -23,51 +23,17 @@ const C_VALIGN_BOTTOM = `bottom`;
 
 const C_LBL_BASICFONT = `"Meiryo UI", sans-serif`;
 
-/** 廃止予定の定数群 */
-const C_LBL_TITLESIZE = 32;
-const C_LBL_BTNSIZE = 28;
-const C_LBL_LNKSIZE = 16;
-
-const C_BTN_HEIGHT = 50;
-const C_LNK_HEIGHT = 30;
-const C_LEN_SETLBL_LEFT = 160;
-const C_LEN_SETLBL_WIDTH = 210;
-const C_LEN_DIFSELECTOR_WIDTH = 250;
-const C_LEN_DIFCOVER_WIDTH = 110;
-const C_LEN_SETLBL_HEIGHT = 22;
-const C_SIZ_SETLBL = 17;
-const C_LEN_SETDIFLBL_HEIGHT = 25;
-const C_SIZ_SETDIFLBL = 17;
-const C_LEN_SETMINI_WIDTH = 40;
-const C_SIZ_SETMINI = 18;
-const C_SIZ_DIFSELECTOR = 14;
-const C_SIZ_MAIN = 14;
-const C_SIZ_MUSIC_TITLE = 13;
-
-const C_LEN_JDGCHARA_WIDTH = 200;
-const C_LEN_JDGCHARA_HEIGHT = 20;
-const C_SIZ_JDGCHARA = 20;
-
-const C_LEN_JDGCNTS_WIDTH = 100;
-const C_LEN_JDGCNTS_HEIGHT = 20;
-const C_SIZ_JDGCNTS = 16;
-
-const C_LEN_GRAPH_WIDTH = 286;
-const C_LEN_GRAPH_HEIGHT = 226;
-const C_CLR_SPEEDGRAPH_SPEED = `#cc3333`;
-const C_CLR_SPEEDGRAPH_BOOST = `#999900`;
-const C_CLR_DENSITY_MAX = `#990000cc`;
-const C_CLR_DENSITY_DEFAULT = `#999999cc`;
-const C_LEN_DENSITY_DIVISION = 16;
-
-const C_MAX_ADJUSTMENT = 30;
-
 /** 設定幅、位置などを管理するプロパティ */
 const g_limitObj = {
 
     // Adjustment, HitPositionの設定幅
     adjustment: 30,
     hitPosition: 50,
+
+    // playbackRate有効時のAdjustmentの設定値の文字サイズ、行幅
+    adjustmentViewSiz: 14,
+    adjustmentViewOrgSiz: 11,
+    adjustmentLineHeight: 12,
 
     // 譜面密度グラフの分割数、上位色付け数
     densityDivision: 16,
@@ -106,7 +72,8 @@ const g_limitObj = {
 
     // グラフ表示部分の幅、高さ
     graphWidth: 286,
-    graphHeight: 226,
+    graphHeight: 240,
+    graphMiniSiz: 12,
 
     // その他のフォントサイズ
     titleSiz: 32,
@@ -119,6 +86,9 @@ const g_limitObj = {
 
     // キーコンフィグのカラーピッカー幅
     kcColorPickerX: 60,
+
+    // キーコンフィグで表示するカラーピッカー数
+    kcColorPickerNum: 5,
 };
 
 /** 設定項目の位置 */
@@ -194,13 +164,13 @@ const g_lblPosObj = {};
 const updateWindowSiz = _ => {
     Object.assign(g_windowObj, {
         optionSprite: { x: (g_sWidth - 450) / 2, y: 65, w: 450, h: 325 },
-        difList: { x: 165, y: 60, w: 280, h: 261 + g_sHeight - 500, overflow: `auto` },
-        difCover: { x: 25, y: 60, w: 140, h: 261 + g_sHeight - 500, opacity: 0.95 },
-        difFilter: { x: 0, y: 61, w: 140, h: 200 + g_sHeight - 500, overflow: `auto` },
+        difList: { x: 165, y: 60, w: 280, h: 270 + g_sHeight - 500, overflow: `auto` },
+        difCover: { x: 20, y: 60, w: 145, h: 270 + g_sHeight - 500, opacity: 0.95 },
+        difFilter: { x: 0, y: 66, w: 140, h: 204 + g_sHeight - 500, overflow: `auto` },
         displaySprite: { x: 25, y: 30, w: (g_sWidth - 450) / 2, h: g_limitObj.setLblHeight * 5 },
-        scoreDetail: { x: 20, y: 85, w: (g_sWidth - 500) / 2 + 420, h: 236, visibility: `hidden` },
+        scoreDetail: { x: 20, y: 85, w: (g_sWidth - 500) / 2 + 420, h: 245, visibility: `hidden` },
         detailObj: { w: (g_sWidth - 500) / 2 + 420, h: 230, visibility: `hidden` },
-        keyconSprite: { y: 88, h: g_sHeight - 85, overflow: `auto` },
+        keyconSprite: { y: 105, h: g_sHeight - 105, overflow: `auto` },
         loader: { y: g_sHeight - 10, h: 10, backgroundColor: `#333333` },
         playDataWindow: { x: g_sWidth / 2 - 225, y: 70, w: 450, h: 110 },
         resultWindow: { x: g_sWidth / 2 - 200, y: 185, w: 400, h: 210 },
@@ -260,6 +230,9 @@ const updateWindowSiz = _ => {
             title: g_msgObj.dataSave, borderStyle: `solid`,
         },
 
+        lblBaseSpd: {
+            x: g_sWidth - 100, y: 0, w: 100, h: 20, siz: 14,
+        },
         btnReverse: {
             x: 160, y: 0, w: 90, h: 21, siz: g_limitObj.difSelectorSiz, borderStyle: `solid`,
         },
@@ -307,7 +280,13 @@ const updateWindowSiz = _ => {
             x: 140, y: 70, w: (g_sWidth - 500) / 2 + 275, h: 150, overflow: `auto`,
         },
         lnkDifInfo: {
-            w: g_limitObj.difCoverWidth, borderStyle: `solid`,
+            w: g_limitObj.difCoverWidth, h: 20, borderStyle: `solid`,
+        },
+        lnkHighScore: {
+            w: g_limitObj.difCoverWidth, h: 20, borderStyle: `solid`,
+        },
+        lblHRank: {
+            x: 290, y: 145, w: 120, h: 20, siz: 50, align: C_ALIGN_CENTER,
         },
 
         /** ディスプレイ画面 */
@@ -337,16 +316,28 @@ const updateWindowSiz = _ => {
             pointerEvents: `none`,
         },
         kcDesc: {
-            x: g_btnX(), y: 68, w: g_btnWidth(), h: 20,
+            x: g_btnX() + 50, y: 68, w: g_btnWidth() - 100, h: 20,
         },
         kcShuffleDesc: {
-            x: 5 + g_btnX(), y: g_sHeight - 125, w: g_btnWidth(), h: 20, align: C_ALIGN_LEFT,
+            x: g_btnX() + 50, y: 85, w: g_btnWidth() - 100, h: 20,
         },
         pickPos: {
             x: 0, w: 50, h: 15, siz: 11, align: C_ALIGN_LEFT, background: `#${g_headerObj.baseBrightFlg ? `eeeeee` : `111111`}80`,
         },
+        lnkColorR: {
+            x: 0, y: -20, w: 30, h: 20, siz: 14, title: g_msgObj.pickColorR,
+        },
         lnkColorCopy: {
-            x: 35, y: -5, w: 30, h: 20, siz: 14, title: g_msgObj.pickColorCopy,
+            x: 30, y: -20, w: 30, h: 20, siz: 14, title: g_msgObj.pickColorCopy,
+        },
+        lnkColorReset: {
+            x: 0, y: 280, w: 50, h: 20, siz: 14, title: g_msgObj.pickColorReset,
+        },
+        lblkey: {
+            x: g_sWidth - 80, y: 90, w: 60, h: 20, siz: 14,
+        },
+        lnkKeySwitch: {
+            x: g_sWidth - 60, w: 50, h: 20, siz: 14,
         },
 
         btnKcBack: {
@@ -375,6 +366,7 @@ const updateWindowSiz = _ => {
         btnKcReset: {
             x: g_btnX(), y: g_sHeight - 75,
             w: g_btnWidth(1 / 3), h: g_limitObj.btnHeight / 2, siz: g_limitObj.btnSiz * 2 / 3,
+            title: g_msgObj.kcReset,
         },
 
         /** メイン画面 */
@@ -389,6 +381,9 @@ const updateWindowSiz = _ => {
         },
         frzHitTop: {
             x: -8, y: -8, w: C_ARW_WIDTH + 16, h: C_ARW_WIDTH + 16,
+        },
+        lblframe: {
+            x: 0, y: 0, w: 100, h: 30, siz: 20,
         },
         lblCredit: {
             x: 125, y: g_headerObj.playingHeight - 30, w: g_headerObj.playingWidth - 125, h: 20, align: C_ALIGN_LEFT,
@@ -616,12 +611,15 @@ let g_imgExtensions = [`png`, `gif`, `bmp`, `jpg`, `jpeg`, `svg`];
 const g_typeLists = {
     arrow: [`arrow`, `dummyArrow`, `frz`, `dummyFrz`],
     color: [`color`, `acolor`],
-    frzColor: [`Normal`, `NormalBar`, `Hit`, `HitBar`],
+    arrowColor: [``, `Shadow`],
+    frzColor: [`Normal`, `NormalBar`, `Hit`, `HitBar`, `NormalShadow`, `HitShadow`],
     dataList: [
         `Arrow`, `FrzArrow`, `FrzLength`,
-        `Color`, `ColorCd`, `ScrollchArrow`, `ScrollchStep`, `ScrollchArrowDir`, `ScrollchStepDir`,
+        `Color`, `ColorCd`, `ColorShadow`, `ColorShadowCd`, `ScrollchArrow`, `ScrollchStep`, `ScrollchArrowDir`, `ScrollchStepDir`,
         `FColorNormal`, `FColorNormalCd`, `FColorNormalBar`, `FColorNormalBarCd`,
+        `FColorNormalShadow`, `FColorNormalShadowCd`,
         `FColorHit`, `FColorHitCd`, `FColorHitBar`, `FColorHitBarCd`,
+        `FColorHitShadow`, `FColorHitShadowCd`,
         `ArrowCssMotion`, `ArrowCssMotionName`,
         `FrzCssMotion`, `FrzCssMotionName`,
         `ArrowColorChangeAll`, `FrzColorChangeAll`,
@@ -675,6 +673,19 @@ const g_escapeStr = {
         [`Quote`, `Ja-Colon`], [`BracketLeft`, `Ja-@`], [`BracketRight`, `Ja-[`],
         [`Backslash`, `Ja-]`], [`Equal`, `Ja-^`],
     ],
+    colorPatternName: [
+        [`AR`, `Arrow`], [`AS`, `ArrowShadow`],
+        [`NA`, `Normal`], [`NB`, `NormalBar`], [`NS`, `NormalShadow`],
+        [`HA`, `Hit`], [`HB`, `HitBar`], [`HS`, `HitShadow`],
+        [`FN`, `Normal/NormalBar`], [`FH`, `Hit/HitBar`], [`FS`, `NormalShadow/HitShadow`],
+        [`AF`, `Arrow/Normal/NormalBar/Hit/HitBar`],
+        [`FrzNormal`, `Normal/NormalBar`], [`FrzHit`, `Hit/HitBar`],
+        [`FrzShadow`, `NormalShadow/HitShadow`],
+        [`Frz`, `Normal/NormalBar/Hit/HitBar`],
+    ],
+    targetPatternName: [
+        [`all`, [...Array(50).keys()].map(i => `g${i}`).join(`/`)],
+    ]
 };
 
 /** 設定・オプション画面用共通 */
@@ -919,7 +930,7 @@ const g_settings = {
     scrolls: [],
     scrollNum: 0,
 
-    shuffles: [C_FLG_OFF, `Mirror`, `X-Mirror`, `Turning`, `Random`, `Random+`, `S-Random`, `S-Random+`],
+    shuffles: [C_FLG_OFF, `Mirror`, `X-Mirror`, `Turning`, `Random`, `Random+`, `S-Random`, `S-Random+`, `Scatter`, `Scatter+`],
     shuffleNum: 0,
     swapPattern: [4, 5, 6, 7],
 
@@ -950,7 +961,7 @@ const g_settings = {
 
     opacitys: [10, 25, 50, 75, 100],
 
-    scoreDetailDefs: [`Density`, `Speed`, `ToolDif`],
+    scoreDetailDefs: [`Density`, `Speed`, `ToolDif`, `HighScore`],
     scoreDetails: [],
     scoreDetailCursors: [],
 
@@ -1010,6 +1021,14 @@ const g_shuffleFunc = {
         applySRandom(keyNum, [[...Array(keyNum).keys()]], `arrow`, `frz`);
         applySRandom(keyNum, [[...Array(keyNum).keys()]], `dummyArrow`, `dummyFrz`);
     },
+    'Scatter': (keyNum, shuffleGroup) => {
+        applySRandom(keyNum, shuffleGroup, `arrow`, `frz`);
+        applySRandom(keyNum, shuffleGroup, `dummyArrow`, `dummyFrz`);
+    },
+    'Scatter+': keyNum => {
+        applySRandom(keyNum, [[...Array(keyNum).keys()]], `arrow`, `frz`);
+        applySRandom(keyNum, [[...Array(keyNum).keys()]], `dummyArrow`, `dummyFrz`);
+    },
 };
 
 /**
@@ -1052,6 +1071,7 @@ const g_keycons = {
     cursorNumList: [],
     cursorNum: 0,
     keySwitchNum: 0,
+    colorCursorNum: 0,
 };
 
 let g_displays = [`stepZone`, `judgment`, `fastSlow`, `lifeGauge`, `score`, `musicInfo`, `filterLine`,
@@ -1519,12 +1539,17 @@ const g_shortcutObj = {
         Digit1: { id: `lnkDensityG` },
         Digit2: { id: `lnkSpeedG` },
         Digit3: { id: `lnkToolDifG` },
+        Digit4: { id: `lnkHighScoreG` },
         Numpad1: { id: `lnkDensityG` },
         Numpad2: { id: `lnkSpeedG` },
         Numpad3: { id: `lnkToolDifG` },
+        Numpad4: { id: `lnkHighScoreG` },
         KeyQ: { id: `lnkDensityG` },
         KeyP: { id: `lnkDifInfo` },
         KeyZ: { id: `btnSave` },
+        ControlLeft_KeyC: { id: `` },
+        ControlRight_KeyC: { id: `` },
+        KeyC: { id: `lnkHighScore`, reset: true },
 
         Escape: { id: `btnBack` },
         Space: { id: `btnKeyConfig` },
@@ -1547,11 +1572,16 @@ const g_shortcutObj = {
         Digit1: { id: `lnkDensityG` },
         Digit2: { id: `lnkSpeedG` },
         Digit3: { id: `lnkToolDifG` },
+        Digit4: { id: `lnkHighScoreG` },
         Numpad1: { id: `lnkDensityG` },
         Numpad2: { id: `lnkSpeedG` },
         Numpad3: { id: `lnkToolDifG` },
+        Numpad4: { id: `lnkHighScoreG` },
         KeyQ: { id: `lnkDensityG` },
         KeyP: { id: `lnkDifInfo` },
+        ControlLeft_KeyC: { id: `` },
+        ControlRight_KeyC: { id: `` },
+        KeyC: { id: `lnkHighScore`, reset: true },
 
         Escape: { id: `btnBack` },
         Space: { id: `btnKeyConfig` },
@@ -1565,6 +1595,7 @@ const g_shortcutObj = {
         ShiftLeft_KeyA: { id: `lnkAppearanceL` },
         ShiftRight_KeyA: { id: `lnkAppearanceL` },
         KeyA: { id: `lnkAppearanceR` },
+        KeyL: { id: `lnkLockBtn` },
         ShiftLeft_KeyO: { id: `lnkOpacityL` },
         ShiftRight_KeyO: { id: `lnkOpacityL` },
         KeyO: { id: `lnkOpacityR` },
@@ -1683,8 +1714,8 @@ const g_shortcutObj = {
         ControlLeft_KeyC: { id: `` },
         ControlRight_KeyC: { id: `` },
         KeyC: { id: `btnCopy`, reset: true },
-        KeyT: { id: `btnTweet`, reset: true },
-        KeyG: { id: `btnGitter`, reset: true },
+        KeyX: { id: `btnTweet`, reset: true }, // x
+        KeyD: { id: `btnGitter`, reset: true }, // Discord
         KeyP: { id: `btnCopyImage` },
         Backspace: { id: `btnRetry` },
     },
@@ -1741,6 +1772,9 @@ const g_cssObj = {
     keyconfig_warning: `keyconfig_warning`,
     keyconfig_ConfigType: `keyconfig_ConfigType`,
     keyconfig_ColorType: `keyconfig_ColorType`,
+    keyconfig_ColorGr: `keyconfig_ColorGr`,
+    keyconfig_ShuffleGr: `keyconfig_ShuffleGr`,
+    keyconfig_StepRtnGr: `keyconfig_StepRtnGr`,
     keyconfig_Changekey: `keyconfig_Changekey`,
     keyconfig_Defaultkey: `keyconfig_Defaultkey`,
 
@@ -1807,6 +1841,7 @@ const g_cssObj = {
     button_Next: `button_Next`,
     button_Reset: `button_Reset`,
     button_Tweet: `button_Tweet`,
+    button_Discord: `button_Discord`,
 
     button_OFF: `button_OFF`,
     button_ON: `button_ON`,
@@ -2581,8 +2616,8 @@ const g_dataMinObj = {
 const g_dfColorObj = {
 
     // 矢印初期色情報
-    setColorInit: [`#6666ff`, `#99ffff`, `#ffffff`, `#ffff99`, `#ff9966`],
-    setShadowColorInit: [``, ``, ``, ``, ``],
+    setColorInit: [`#6666ff`, `#99ffff`, `#ffffff`, `#ffff99`, `#ff9966`, `#6666ff`, `#99ffff`, `#ffffff`, `#ffff99`, `#ff9966`],
+    setShadowColorInit: [``, ``, ``, ``, ``, ``, ``, ``, ``, ``],
 
     // フリーズアロー初期色情報
     frzColorInit: [`#66ffff`, `#6600ff`, `#cccc33`, `#999933`],
@@ -2595,83 +2630,123 @@ const g_cssBkProperties = {};
 const g_dfColorBaseObj = {
 
     dark: {
-        setColorType1: [`#6666ff`, `#99ffff`, `#ffffff`, `#ffff99`, `#ff9966`],
-        setColorType2: [`#ffffff`, `#9999ff`, `#99ccff`, `#ffccff`, `#ff9999`],
-        setColorType3: [`#ccccff`, `#ccffff`, `#ffffff`, `#ffffcc`, `#ffcc99`],
-        setColorType4: [`#ffffff`, `#ccccff`, `#99ccff`, `#ffccff`, `#ffcccc`],
+        setColorType1: [`#6666ff`, `#99ffff`, `#ffffff`, `#ffff99`, `#ff9966`, `#ff9999`, `#ff6699`, `#99ff99`, `#6699ff`, `#9966ff`],
+        setColorType2: [`#ffffff`, `#9999ff`, `#99ccff`, `#ffccff`, `#ff9999`, `#669966`, `#ccffcc`, `#cc99ff`, `#ffff99`, `#cc9966`],
+        setColorType3: [`#ccccff`, `#ccffff`, `#ffffff`, `#ffffcc`, `#ffcc99`, `#ffcccc`, `#ff99cc`, `#ccffcc`, `#99ccff`, `#cc99ff`],
+        setColorType4: [`#ffffff`, `#ccccff`, `#99ccff`, `#ffccff`, `#ffcccc`, `#99cc99`, `#ccffcc`, `#cc99ff`, `#ffff99`, `#ffcc99`],
 
-        setShadowColorType1: [`#00000080`, `#00000080`, `#00000080`, `#00000080`, `#00000080`],
-        setShadowColorType2: [`#00000080`, `#00000080`, `#00000080`, `#00000080`, `#00000080`],
-        setShadowColorType3: [`#6666ff60`, `#33999960`, `#66666660`, `#99993360`, `#cc663360`],
-        setShadowColorType4: [`#66666660`, `#6666ff60`, `#3366cc60`, `#99339960`, `#99333360`],
+        setShadowColorType1: [`#00000080`, `#00000080`, `#00000080`, `#00000080`, `#00000080`, `#00000080`, `#00000080`, `#00000080`, `#00000080`, `#00000080`],
+        setShadowColorType2: [`#00000080`, `#00000080`, `#00000080`, `#00000080`, `#00000080`, `#00000080`, `#00000080`, `#00000080`, `#00000080`, `#00000080`],
+        setShadowColorType3: [`#6666ff60`, `#33999960`, `#66666660`, `#99993360`, `#cc663360`, `#99666660`, `#99336660`, `#33993360`, `#33669960`, `#66339960`],
+        setShadowColorType4: [`#66666660`, `#6666ff60`, `#3366cc60`, `#99339960`, `#99333360`, `#33663360`, `#66996660`, `#66339960`, `#66663360`, `#99663360`],
 
         frzColorType1: [
             [`#66ffff`, `#6600ff`, `#cccc33`, `#999933`],
             [`#00ffcc`, `#339999`, `#cccc33`, `#999933`],
             [`#66ffff`, `#6600ff`, `#cccc33`, `#999933`],
             [`#cc99ff`, `#9966ff`, `#cccc33`, `#999933`],
-            [`#ff99cc`, `#ff6699`, `#cccc33`, `#999933`]
+            [`#ff99cc`, `#ff6699`, `#cccc33`, `#999933`],
+            [`#ff9999`, `#ffcccc`, `#cccc33`, `#999933`],
+            [`#ff6699`, `#ff99cc`, `#cccc33`, `#999933`],
+            [`#99ff99`, `#ccffcc`, `#cccc33`, `#999933`],
+            [`#6699ff`, `#99ccff`, `#cccc33`, `#999933`],
+            [`#9966ff`, `#cc99ff`, `#cccc33`, `#999933`],
         ],
         frzColorType2: [
             [`#cccccc`, `#999999`, `#cccc33`, `#999933`],
             [`#66ffff`, `#6600ff`, `#cccc33`, `#999933`],
             [`#66ffff`, `#6600ff`, `#cccc33`, `#999933`],
             [`#cc99cc`, `#ff99ff`, `#cccc33`, `#999933`],
-            [`#ff6666`, `#ff9999`, `#cccc33`, `#999933`]
+            [`#ff6666`, `#ff9999`, `#cccc33`, `#999933`],
+            [`#669966`, `#669966`, `#cccc33`, `#999933`],
+            [`#ccffcc`, `#ccffcc`, `#cccc33`, `#999933`],
+            [`#cc99ff`, `#cc99ff`, `#cccc33`, `#999933`],
+            [`#ffff99`, `#ffff99`, `#cccc33`, `#999933`],
+            [`#cc9966`, `#cc9966`, `#cccc33`, `#999933`],
         ],
         frzColorType3: [
             [`#66ffff`, `#6600ff`, `#cccc33`, `#999933`],
             [`#00ffcc`, `#339999`, `#cccc33`, `#999933`],
             [`#66ffff`, `#6600ff`, `#cccc33`, `#999933`],
             [`#cc99ff`, `#9966ff`, `#cccc33`, `#999933`],
-            [`#ff99cc`, `#ff6699`, `#cccc33`, `#999933`]
+            [`#ff99cc`, `#ff6699`, `#cccc33`, `#999933`],
+            [`#ff9999`, `#ffcccc`, `#cccc33`, `#999933`],
+            [`#ff6699`, `#ff99cc`, `#cccc33`, `#999933`],
+            [`#99ff99`, `#ccffcc`, `#cccc33`, `#999933`],
+            [`#6699ff`, `#99ccff`, `#cccc33`, `#999933`],
+            [`#9966ff`, `#cc99ff`, `#cccc33`, `#999933`],
         ],
         frzColorType4: [
             [`#cccccc`, `#999999`, `#cccc33`, `#999933`],
             [`#66ffff`, `#6600ff`, `#cccc33`, `#999933`],
             [`#66ffff`, `#6600ff`, `#cccc33`, `#999933`],
             [`#cc99cc`, `#ff99ff`, `#cccc33`, `#999933`],
-            [`#ff6666`, `#ff9999`, `#cccc33`, `#999933`]
+            [`#ff6666`, `#ff9999`, `#cccc33`, `#999933`],
+            [`#669966`, `#669966`, `#cccc33`, `#999933`],
+            [`#ccffcc`, `#ccffcc`, `#cccc33`, `#999933`],
+            [`#cc99ff`, `#cc99ff`, `#cccc33`, `#999933`],
+            [`#ffff99`, `#ffff99`, `#cccc33`, `#999933`],
+            [`#cc9966`, `#cc9966`, `#cccc33`, `#999933`],
         ],
     },
     light: {
-        setColorType1: [`#6666ff`, `#66cccc`, `#000000`, `#999966`, `#cc6600`],
-        setColorType2: [`#000000`, `#6666ff`, `#cc0000`, `#cc99cc`, `#cc3366`],
-        setColorType3: [`#000000`, `#000000`, `#000000`, `#000000`, `#000000`],
-        setColorType4: [`#000000`, `#000000`, `#000000`, `#000000`, `#000000`],
+        setColorType1: [`#6666ff`, `#66cccc`, `#000000`, `#999966`, `#cc6600`, `#996666`, `#ff6699`, `#66cc66`, `#3399ff`, `#6633cc`],
+        setColorType2: [`#000000`, `#6666ff`, `#cc0000`, `#cc99cc`, `#cc3366`, `#669966`, `#336633`, `#9966cc`, `#999900`, `#996633`],
+        setColorType3: [`#000000`, `#000000`, `#000000`, `#000000`, `#000000`, `#000000`, `#000000`, `#000000`, `#000000`, `#000000`],
+        setColorType4: [`#000000`, `#000000`, `#000000`, `#000000`, `#000000`, `#000000`, `#000000`, `#000000`, `#000000`, `#000000`],
 
-        setShadowColorType1: [`#ffffff80`, `#ffffff80`, `#ffffff80`, `#ffffff80`, `#ffffff80`],
-        setShadowColorType2: [`#ffffff80`, `#ffffff80`, `#ffffff80`, `#ffffff80`, `#ffffff80`],
-        setShadowColorType3: [`#6666ff80`, `#66cccc80`, `#ffffff80`, `#99996680`, `#cc660080`],
-        setShadowColorType4: [`#00000080`, `#6666ff80`, `#cc000080`, `#cc99cc80`, `#cc336680`],
+        setShadowColorType1: [`#ffffff80`, `#ffffff80`, `#ffffff80`, `#ffffff80`, `#ffffff80`, `#ffffff80`, `#ffffff80`, `#ffffff80`, `#ffffff80`, `#ffffff80`],
+        setShadowColorType2: [`#ffffff80`, `#ffffff80`, `#ffffff80`, `#ffffff80`, `#ffffff80`, `#ffffff80`, `#ffffff80`, `#ffffff80`, `#ffffff80`, `#ffffff80`],
+        setShadowColorType3: [`#6666ff80`, `#66cccc80`, `#ffffff80`, `#99996680`, `#cc660080`, `#ff666680`, `#cc669980`, `#99cc9980`, `#6699cc80`, `#9966cc80`],
+        setShadowColorType4: [`#00000080`, `#6666ff80`, `#cc000080`, `#cc99cc80`, `#cc336680`, `#66996680`, `#99cc9980`, `#9966cc80`, `#99993380`, `#cc996680`],
 
         frzColorType1: [
             [`#66ffff`, `#6600ff`, `#ffff00`, `#999900`],
             [`#00ffcc`, `#339999`, `#ffff00`, `#999900`],
             [`#66ffff`, `#6600ff`, `#ffff00`, `#999900`],
             [`#cc99ff`, `#9966ff`, `#ffff00`, `#999900`],
-            [`#ff99cc`, `#ff6699`, `#ffff00`, `#999900`]
+            [`#ff99cc`, `#ff6699`, `#ffff00`, `#999900`],
+            [`#996666`, `#996666`, `#cccc33`, `#999933`],
+            [`#ff6699`, `#ff6699`, `#cccc33`, `#999933`],
+            [`#66cc66`, `#66cc66`, `#cccc33`, `#999933`],
+            [`#3399ff`, `#3399ff`, `#cccc33`, `#999933`],
+            [`#6633cc`, `#6633cc`, `#cccc33`, `#999933`],
         ],
         frzColorType2: [
             [`#cccccc`, `#999999`, `#ffff00`, `#999900`],
             [`#66ffff`, `#6600ff`, `#ffff00`, `#999900`],
             [`#66ffff`, `#6600ff`, `#ffff00`, `#999900`],
             [`#cc99cc`, `#ff99ff`, `#ffff00`, `#999900`],
-            [`#ff6666`, `#ff9999`, `#ffff00`, `#999900`]
+            [`#ff6666`, `#ff9999`, `#ffff00`, `#999900`],
+            [`#669966`, `#669966`, `#cccc33`, `#999933`],
+            [`#336633`, `#336633`, `#cccc33`, `#999933`],
+            [`#9966cc`, `#9966cc`, `#cccc33`, `#999933`],
+            [`#999900`, `#999900`, `#cccc33`, `#999933`],
+            [`#996633`, `#996633`, `#cccc33`, `#999933`],
         ],
         frzColorType3: [
             [`#66ffff`, `#6600ff`, `#ffff00`, `#999900`],
             [`#00ffcc`, `#339999`, `#ffff00`, `#999900`],
             [`#66ffff`, `#6600ff`, `#ffff00`, `#999900`],
             [`#cc99ff`, `#9966ff`, `#ffff00`, `#999900`],
-            [`#ff99cc`, `#ff6699`, `#ffff00`, `#999900`]
+            [`#ff99cc`, `#ff6699`, `#ffff00`, `#999900`],
+            [`#996666`, `#996666`, `#cccc33`, `#999933`],
+            [`#ff6699`, `#ff6699`, `#cccc33`, `#999933`],
+            [`#66cc66`, `#66cc66`, `#cccc33`, `#999933`],
+            [`#3399ff`, `#3399ff`, `#cccc33`, `#999933`],
+            [`#6633cc`, `#6633cc`, `#cccc33`, `#999933`],
         ],
         frzColorType4: [
             [`#cccccc`, `#999999`, `#ffff00`, `#999900`],
             [`#66ffff`, `#6600ff`, `#ffff00`, `#999900`],
             [`#66ffff`, `#6600ff`, `#ffff00`, `#999900`],
             [`#cc99cc`, `#ff99ff`, `#ffff00`, `#999900`],
-            [`#ff6666`, `#ff9999`, `#ffff00`, `#999900`]
+            [`#ff6666`, `#ff9999`, `#ffff00`, `#999900`],
+            [`#669966`, `#669966`, `#cccc33`, `#999933`],
+            [`#336633`, `#336633`, `#cccc33`, `#999933`],
+            [`#9966cc`, `#9966cc`, `#cccc33`, `#999933`],
+            [`#999900`, `#999900`, `#cccc33`, `#999933`],
+            [`#996633`, `#996633`, `#cccc33`, `#999933`],
         ],
     },
 };
@@ -2738,12 +2813,15 @@ const g_lang_msgInfoObj = {
         E_0103: `新しいキー:{0}の[stepRtn]が未定義です。(E-0103)<br>
         |stepRtn{0}=0,45,-90,135,180,onigiri|`,
         E_0104: `新しいキー:{0}の[keyCtrl]が未定義です。(E-0104)<br>
-        |keyCtrl{0}=75,79,76,80,187,32/0|`,
+        |keyCtrl{0}=S,D,E/R,F,Space,J,M/Comma,K,L|`,
+
+        E_0201: `色変化データで指定した色変化対象が存在しません。[pattern={0}] (E-0201)`,
 
         I_0001: `リザルトデータをクリップボードにコピーしました！`,
         I_0002: `入力したキーは割り当てできません。他のキーを指定してください。`,
         I_0003: `各譜面の明細情報をクリップボードにコピーしました！`,
         I_0004: `musicUrlが設定されていないため、無音モードで再生します`,
+        I_0005: `正規のミラー譜面で無いため、ハイスコアは保存されません`,
     },
     En: {
         W_0001: `Your browser is not guaranteed to work.<br>
@@ -2761,7 +2839,7 @@ const g_lang_msgInfoObj = {
         E_0012: `The song title information is not set. (E-0012)<br>
         |musicTitle=Song title,Artist name,Artist's site URL|`,
         E_0021: `Music information is not set or the format is incorrect.(E-0021)<br>
-        |difData=Keys' name,chart's name,Specified speed|`,
+        |difData=Key type's name,chart's name,Specified speed|`,
         E_0022: `The format of the external music file is incorrect.(E-0022)<br>
         function externalDosInit() { g_externalDos = \`(Chart data)\`; }`,
         E_0023: `Music information is not set. (E-0023)<br>
@@ -2785,12 +2863,15 @@ const g_lang_msgInfoObj = {
         E_0103: `New key: {0} [stepRtn] is not set. (E-0103)<br>
         |stepRtn{0}=0,45,-90,135,180,onigiri|`,
         E_0104: `New key: {0} [keyCtrl] is not set. (E-0104)<br>
-        |keyCtrl{0}=75,79,76,80,187,32/0|`,
+        |keyCtrl{0}=S,D,E/R,F,Space,J,M/Comma,K,L|`,
+
+        E_0201: `The color change target specified in the color change data does not exist. [pattern={0}] (E-0201)`,
 
         I_0001: `Your result data is copied to the clipboard!`,
         I_0002: `The specified key cannot be assigned. Please specify another key.`,
         I_0003: `Charts information is copied to the clipboard!`,
         I_0004: `Play in silence mode because "musicUrl" is not set`,
+        I_0005: `Highscore is not saved because not a regular mirrored chart.`,
     },
 };
 
@@ -2832,13 +2913,14 @@ const g_lblNameObj = {
     b_back: `Back`,
     b_keyConfig: `KeyConfig`,
     b_play: `PLAY!`,
-    b_reset: `Reset`,
+    b_reset: `Reset Key`,
     b_settings: `To Settings`,
     b_copy: `CopyResult`,
-    b_tweet: `Tweet`,
-    b_gitter: `Gitter`,
+    b_tweet: `Post X`,
+    b_gitter: `Discord`,
     b_retry: `Retry`,
     b_close: `Close`,
+    b_cReset: `Reset`,
 
     Difficulty: `Difficulty`,
     Speed: `Speed`,
@@ -2927,6 +3009,7 @@ const g_lblNameObj = {
     'u_Random+': `Random+`,
     'u_S-Random': `S-Random`,
     'u_S-Random+': `S-Random+`,
+    'u_(S)': `(S)`,
 
     'u_ALL': `ALL`,
     'u_Onigiri': `Onigiri`,
@@ -2957,6 +3040,7 @@ const g_lblNameObj = {
     'u_Speed': `Velocity`,
     'u_Density': `Density`,
     'u_ToolDif': `DifLevel`,
+    'u_HighScore': `HighScore`,
 
     'u_Main': `Main`,
     'u_Replaced': `Replaced`,
@@ -3010,6 +3094,14 @@ const g_lblNameObj = {
 };
 
 /**
+ * リンク先管理
+ */
+const g_linkObj = {
+    x: `https://x.com/intent/post`,
+    discord: `https://discord.gg/5Hxu4wDEZR`,
+};
+
+/**
  * ラベル表示定義（言語別）
  */
 const g_lang_lblNameObj = {
@@ -3029,6 +3121,8 @@ const g_lang_lblNameObj = {
         s_cnts: `All Arrows`,
         s_linecnts: `- 矢印 Arrow:<br><br>- 氷矢 Frz:<br><br>- 3つ押し位置 ({0}):`,
         s_print: `データ出力`,
+        s_result: `CopyResult`,
+        s_resetResult: `Reset`,
         s_printTitle: `Dancing☆Onigiri レベル計算ツール+++`,
         s_printHeader: `難易度\t同時\t縦連\t総数\t矢印\t氷矢印\tAPM\t時間`,
 
@@ -3066,6 +3160,8 @@ const g_lang_lblNameObj = {
         s_cnts: `All Arrows`,
         s_linecnts: `- Arrow:<br><br>- Freeze Arrow:<br><br>- Polychord positions ({0}):`,
         s_print: `CopyData`,
+        s_result: `CopyResult`,
+        s_resetResult: `Reset`,
         s_printTitle: `Dancing☆Onigiri Level Calculator+++`,
         s_printHeader: `Level\tChords\tJack\tAll\tArrow\tFrz\tAPM\tTime`,
 
@@ -3107,9 +3203,11 @@ const g_lang_msgObj = {
         github: `Dancing☆Onigiri (CW Edition)のGitHubページへ移動します。`,
         security: `Dancing☆Onigiri (CW Edition)のサポート情報ページへ移動します。`,
 
-        dataResetConfirm: `この作品のローカル設定をクリアします。よろしいですか？\n(ハイスコアやAdjustment等のデータがクリアされます)`,
+        dataResetConfirm: `この作品のローカル設定をクリアします。よろしいですか？\n(ハイスコアやAdjustment等のデータが全てクリアされます)`,
         keyResetConfirm: `キーを初期配置に戻します。よろしいですか？`,
+        highscResetConfirm: `この譜面のハイスコアを消去します。よろしいですか？`,
         colorCopyConfirm: `フリーズアローの配色を矢印色に置き換えます\n(通常・ヒット時双方を置き換えます)。よろしいですか？`,
+        colorResetConfirm: `矢印・フリーズアローの配色を元に戻します。よろしいですか？`,
 
         difficulty: `譜面を選択します。`,
         speed: `矢印の流れる速度を設定します。\n外側のボタンは1x単位、内側は0.25x単位で変更できます。`,
@@ -3143,6 +3241,14 @@ const g_lang_msgObj = {
         d_arroweffect: `矢印・フリーズアローモーションの有効化設定`,
         d_special: `作品固有の特殊演出の有効化設定`,
 
+        lnkSpeedG: `譜面の進行別の速度変化状況を表示`,
+        lnkDensityG: `譜面の密度状況を表示`,
+        lnkToolDifG: `譜面の難易度、矢印・フリーズアローの分布状況を表示`,
+        lnkHighScoreG: `譜面のハイスコアを表示`,
+        lnkDifInfo: `譜面の難易度、矢印・フリーズアローの分布状況をクリップボードへコピー`,
+        lnkResetHighScore: `譜面のハイスコア情報を消去`,
+        lnkHighScore: `譜面のハイスコアをクリップボードへコピー`,
+
         appearance: `流れる矢印の見え方を制御します。`,
         opacity: `判定キャラクタ、コンボ数、Fast/Slow、Hidden+/Sudden+の\n境界線表示の透明度を設定します。`,
         hitPosition: `判定位置にズレを感じる場合、\n数値を変えることで判定の中央位置を1px単位(プラス:手前, マイナス:奥側)で調整することができます。\n早押し・遅押し傾向にある場合に使用します。`,
@@ -3153,9 +3259,12 @@ const g_lang_msgObj = {
         colorGroup: `矢印・フリーズアロー色グループの割り当てパターンを変更します。`,
         shuffleGroup: `Mirror/X-Mirror/Turning/Random/S-Random選択時、シャッフルするグループを変更します。\n矢印の上にある同じ数字同士でシャッフルします。`,
         stepRtnGroup: `矢印などノーツの種類、回転に関するパターンを切り替えます。\nあらかじめ設定されている場合のみ変更可能です。`,
+        kcReset: `対応するキーの割り当てを元に戻します。`,
 
         pickArrow: `色番号ごとの矢印色（枠、塗りつぶし）、通常時のフリーズアロー色（枠、帯）を\nカラーピッカーから選んで変更できます。`,
+        pickColorR: `設定する矢印色の種類を切り替えます。`,
         pickColorCopy: `このボタンを押すと、フリーズアローの配色を矢印（枠）の色で上書きします。\nヒット時のフリーズアローの色も上書きします。`,
+        pickColorReset: `矢印・フリーズアローの配色を元に戻します。`,
     },
 
     En: {
@@ -3166,7 +3275,9 @@ const g_lang_msgObj = {
 
         dataResetConfirm: `Delete the local settings in this game. Is it OK?\n(High score, adjustment, volume and some settings will be initialized)`,
         keyResetConfirm: `Resets the assigned key to the initial state. Is it OK?`,
+        highscResetConfirm: `Erases the high score for this chart. Is it OK?`,
         colorCopyConfirm: `Replace freeze arrow color scheme with arrow color\n(replace both normal and hit). Is this OK?`,
+        colorResetConfirm: `Restore the color scheme for arrows and freeze arrows. Is this OK?`,
 
         difficulty: `Select a chart.`,
         speed: `Set the speed of the sequences.\nThe outer button can be changed in 1x increments and the inner button in 0.25x increments.`,
@@ -3200,6 +3311,14 @@ const g_lang_msgObj = {
         d_arroweffect: `Enable sequences' animations`,
         d_special: `Enable setting of special effects to the work`,
 
+        lnkSpeedG: `Displays the speed change status by progression of the chart.`,
+        lnkDensityG: `Displays the density status of the chart.`,
+        lnkToolDifG: `Displays the difficulty level of the chart and the distribution of arrows and freeze arrows.`,
+        lnkHighScoreG: `Displays the high score of the chart.`,
+        lnkDifInfo: `Copy the difficulty of the chart and the distribution of arrows and freeze arrows to the clipboard.`,
+        lnkResetHighScore: `Erase the high score information in the chart.`,
+        lnkHighScore: `Copies the high score of the chart to the clipboard.`,
+
         appearance: `Controls how the flowing sequences look.`,
         opacity: `Set the transparency of some objects such as judgment, combo counts, fast and slow`,
         hitPosition: `If you feel a discrepancy in the judgment position, \nyou can adjust the center position of the judgment in 1px increments \n (plus: in front, minus: at the back) by changing the numerical value. \nUse this function when there is a tendency to push too fast or too slow.`,
@@ -3210,9 +3329,12 @@ const g_lang_msgObj = {
         colorGroup: `Change the sequences color group assignment pattern.`,
         shuffleGroup: `Change the shuffle group when Mirror, X-Mirror, Turning, Random or S-Random are selected.\nShuffle with the same numbers listed above.`,
         stepRtnGroup: `Switches the type of notes, such as arrows, and the pattern regarding rotation.\nThis can only be changed if it has been set in advance.`,
+        kcReset: `Restores the corresponding key assignments.`,
 
         pickArrow: `Change the frame or fill of arrow color and the frame or bar of normal freeze-arrow color\nfor each color number from the color picker.`,
+        pickColorR: `Switches the arrow color type to be set.`,
         pickColorCopy: `Pressing this button will override the color scheme of the freeze arrow with the frame color of the arrow. \nIt also overrides the color of the freeze arrow on hit.`,
+        pickColorReset: `Restore the color scheme for arrows and freeze arrows.`,
     },
 
 };
