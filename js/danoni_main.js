@@ -4,32 +4,32 @@
  * 
  * Source by tickle
  * Created : 2018/10/08
- * Revised : 2024/08/14
+ * Revised : 2024/12/19
  * 
  * https://github.com/cwtickle/danoniplus
  */
-const g_version = `Ver 37.4.0`;
-const g_revisedDate = `2024/08/14`;
+const g_version = `Ver 38.2.2`;
+const g_revisedDate = `2024/12/19`;
 
 // カスタム用バージョン (danoni_custom.js 等で指定可)
 let g_localVersion = ``;
 let g_localVersion2 = ``;
 
 // ショートカット用文字列(↓の文字列を検索することで対象箇所へジャンプできます)
-//  共通:water　初期化:peach　タイトル:melon  設定:lime　ディスプレイ:lemon  キーコンフィグ:orange  譜面読込:strawberry  メイン:banana  結果:grape
+//  共通:water 初期化:peach タイトル:melon 設定:lime ディスプレイ:lemon キーコンフィグ:orange 譜面読込:strawberry メイン:banana 結果:grape
 //  シーンジャンプ:Scene
 
 /**
  * ▽ 画面の構成
  *  [タイトル]-[設定]-[ディスプレイ]-[キーコンフィグ]-[譜面読込]-[メイン]-[リザルト]
- *  ⇒　各画面に Init がついたものが画面の基本構成(ルート)を表す。
+ *  ⇒ 各画面に Init がついたものが画面の基本構成(ルート)を表す。
  * 
  * ▽ スプライトの親子関係
  *  基本的にdiv要素で管理。最下層を[divRoot]とし、createEmptySprite()でdiv子要素を作成。
  *  clearWindow()で[divRoot]以外の全てのスプライトを削除。
  *  特定のスプライトに限り削除する場合は deleteChildspriteAll() 。
  */
-const current = _ => {
+const current = () => {
 	if (document.currentScript) {
 		return document.currentScript.src;
 	}
@@ -39,11 +39,12 @@ const current = _ => {
 };
 const g_rootPath = current().match(/(^.*\/)/)[0];
 const g_workPath = new URL(location.href).href.match(/(^.*\/)/)[0];
-const g_remoteFlg = g_rootPath.match(`^https://cwtickle.github.io/danoniplus/`) !== null;
+const g_remoteFlg = g_rootPath.match(`^https://cwtickle.github.io/danoniplus/`) !== null ||
+	g_rootPath.match(/danoniplus.netlify.app/) !== null;
 const g_randTime = Date.now();
 const g_isFile = location.href.match(/^file/);
 const g_isLocal = location.href.match(/^file/) || location.href.indexOf(`localhost`) !== -1;
-const isLocalMusicFile = _scoreId => g_isFile && !listMatching(getMusicUrl(g_stateObj.scoreId), [`.js`, `.txt`], { suffix: `$` });
+const isLocalMusicFile = _scoreId => g_isFile && !listMatching(getMusicUrl(_scoreId), [`.js`, `.txt`], { suffix: `$` });
 
 window.onload = async () => {
 	g_loadObj.main = true;
@@ -56,6 +57,7 @@ window.onload = async () => {
 	// ロード直後に定数・初期化ファイル、旧バージョン定義関数を読込
 	await loadScript2(`${g_rootPath}../js/lib/danoni_localbinary.js?${g_randTime}`, false);
 	await loadScript2(`${g_rootPath}../js/lib/danoni_constants.js?${g_randTime}`);
+	await loadScript2(`${g_rootPath}../js/lib/legacy_functions.js?${g_randTime}`, false);
 	initialControl();
 };
 
@@ -199,36 +201,40 @@ let g_canLoadDifInfoFlg = false;
 /**
  * div要素のstyleを取得
  * @param {string} _id 
+ * @returns {CSSStyleDeclaration}
  */
 const $id = _id => document.getElementById(_id).style;
 
 /**
  * 複数のdiv子要素を親要素へ接続
- * @param {object} _baseObj 
- * @param {...any} rest 
+ * @param {Element} _baseObj 
+ * @param {...any} [rest] 
  */
 const multiAppend = (_baseObj, ...rest) => _baseObj.append(...rest);
 
 /**
  * 複数の属性をまとめて設定
- * @param {object} _baseObj 
- * @param {object} rest 
+ * @param {Element} _baseObj 
+ * @param {...any} [rest] 
  */
 const setAttrs = (_baseObj, { ...rest } = {}) =>
 	Object.keys(rest).forEach(property => _baseObj.setAttribute(property, rest[property]));
 
 /**
  * 属性値を数値に変換して取得
- * @param {object} _baseObj 
+ * @param {Element} _baseObj 
  * @param {string} _attrkey 
+ * @returns {number}
  */
 const getNumAttr = (_baseObj, _attrkey) => parseFloat(_baseObj.getAttribute(_attrkey));
 
 /**
  * 文字列に埋め込まれた変数を展開
  * @param {string} _str 
+ * @returns {string} 埋め込み後の変数
  */
 const convertStrToVal = _str => {
+	if (!hasVal(_str)) return _str;
 	const strs = _str.split(`}`).join(`{`).split(`{`);
 	let convStrs = ``;
 	for (let j = 0; j < strs.length; j += 2) {
@@ -241,6 +247,7 @@ const convertStrToVal = _str => {
 /**
  * 半角スペース、タブを文字列から除去
  * @param {string} _str 
+ * @returns {string} 半角スペース、タブ除去後の文字列
  */
 const trimStr = _str => _str?.split(`\t`).join(``).replace(/^ +| +$/g, ``);
 
@@ -250,18 +257,25 @@ const trimStr = _str => _str?.split(`\t`).join(``).replace(/^ +| +$/g, ``);
 
 /**
  * 変数が存在するかどうかをチェック
- * @param {string} _data 
+ * @param {string} _data
+ * @param {...any} [strs] 空とundefined以外で除外したい文字列
+ * @returns {boolean}
  */
 const hasVal = (_data, ...strs) => _data !== undefined && _data !== `` && (!strs || strs.every(str => _data !== str));
 
 /**
  * 変数が存在するかどうかをチェック(null無しを含む)
  * @param {string} _data
+ * @param {...any} [strs]
+ * @returns {boolean}
  */
 const hasValN = (_data, ...strs) => hasVal(_data, ...strs) && _data !== null;
 
 /**
  * 文字列から他の型へ変換する処理群
+ * @param {string} _checkStr
+ * @param {string} _default
+ * @returns {number|boolean|string}
  */
 const g_convFunc = {
 	float: (_checkStr, _default) => isNaN(parseFloat(_checkStr)) ? _default : parseFloat(_checkStr),
@@ -286,7 +300,8 @@ const g_convFunc = {
  * - 型に合わない場合は _default を返却するが、_default自体の型チェック・変換は行わない
  * @param {string} _checkStr 
  * @param {string} _default 
- * @param {string} _type 
+ * @param {string} [_type='string'] 
+ * @returns 
  */
 const setVal = (_checkStr, _default, _type = C_TYP_STRING) =>
 	hasValN(_checkStr) ? g_convFunc[_type](_checkStr, _default) : _default;
@@ -294,34 +309,38 @@ const setVal = (_checkStr, _default, _type = C_TYP_STRING) =>
 /**
  * ブール値からON/OFFへ変換
  * @param {boolean} _condition 
+ * @returns {string}
  */
 const boolToSwitch = _condition => _condition ? C_FLG_ON : C_FLG_OFF;
 
 /**
  * 単位付きの値を返却
  * @param {number} _val 
- * @param {string} _unitName 
- * @returns 
+ * @param {string} [_unitName='px'] 
+ * @returns {string}
  */
 const wUnit = (_val, _unitName = `px`) => `${_val}${_unitName}`;
 
 /**
  * ブール値への変換
  * @param {string} _val 
- * @param {boolean} _defaultVal
+ * @param {boolean} [_defaultVal=false]
+ * @returns {boolean}
  */
 const setBoolVal = (_val, _defaultVal = false) => hasValN(_val) ? g_convFunc.boolean(_val, _defaultVal) : _defaultVal;
 
 /**
  * 整数値への変換
  * @param {string} _val 
- * @param {number} _defaultVal
+ * @param {number} [_defaultVal=0]
+ * @returns {number}
  */
 const setIntVal = (_val, _defaultVal = 0) => hasValN(_val) ? g_convFunc.number(_val, _defaultVal) : _defaultVal;
 
 /**
  * 先頭のみ大文字に変換（それ以降はそのまま）
  * @param {string} _str 
+ * @returns {string}
  */
 const toCapitalize = _str => {
 	if (!_str || typeof _str !== `string`) return _str;
@@ -331,37 +350,42 @@ const toCapitalize = _str => {
 /**
  * 0以上の数字に変換
  * @param {number} _num 
- * @param {number} _init 0未満の場合に設定する値
+ * @param {number} [_init=0] 0未満の場合に設定する値
+ * @returns {number}
  */
 const roundZero = (_num, _init = 0) => _num < 0 ? _init : _num;
 
 /**
  * 配列から_targetに合致する配列位置を返す
  * 存在しない場合は0を返却
- * @param {array} _list 
+ * @param {string[]} _list 
  * @param {string} _target
+ * @returns {number}
  */
 const getCurrentNo = (_list, _target) => roundZero(_list.indexOf(_target));
 
 /**
  * 配列内に存在するかどうかをチェック
  * @param {string} _val 
- * @param {array} _array 
- * @param {integer} _pos
+ * @param {string[]} _array 
+ * @param {number} [_pos=0]
+ * @returns {boolean}
  */
 const hasValInArray = (_val, _array, _pos = 0) =>
 	_array.findIndex(data => data[_pos] === _val) !== -1;
 
 /**
  * 配列が既定長以上かどうかをチェック
- * @param {array} _data 
- * @param {integer} _length
+ * @param {any[]} _data 
+ * @param {number} [_length=1]
+ * @returns {boolean}
  */
 const hasArrayList = (_data, _length = 1) => _data?.length >= _length;
 
 /**
  * 改行コード区切りの配列展開
  * @param {string} _str
+ * @returns {string[]}
  */
 const splitLF = _str => _str?.split(`\r`).join(`\n`).split(`\n`);
 
@@ -369,7 +393,8 @@ const splitLF = _str => _str?.split(`\r`).join(`\n`).split(`\n`);
  * 改行コード区切りを本来の区切り文字に変換して配列展開
  * （改行区切りで間が空行だった場合は無効化）
  * @param {string} _str 
- * @param {string} _delim
+ * @param {string} [_delim='$']
+ * @returns {string[]}
  */
 const splitLF2 = (_str, _delim = `$`) => splitLF(_str)?.filter(val => val !== ``).join(_delim).split(_delim);
 
@@ -377,48 +402,55 @@ const splitLF2 = (_str, _delim = `$`) => splitLF(_str)?.filter(val => val !== ``
  * カンマ区切り処理
  * （ただし、カンマ+半角スペースの組の場合は区切り文字と見做さない）
  * @param {string} _str 
+ * @returns {string[]}
  */
 const splitComma = _str => _str?.split(`, `).join(`*comma* `).split(`,`);
 
 /**
  * 重複を排除した配列の生成
- * @param {array} _array1 
- * @param {...any} _arrays
+ * @param {any[]} _array1 
+ * @param {...any} [_arrays]
+ * @returns {any[]}
  */
 const makeDedupliArray = (_array1, ..._arrays) =>
 	Array.from((new Set([..._array1, ..._arrays.flat()])).values()).filter(val => val !== undefined);
 
 /**
  * 二次元配列のコピー
- * @param {array2} _array2d
+ * @param {any[][]} _array2d
+ * @returns {any[][]}
  */
 const copyArray2d = _array2d => structuredClone(_array2d);
 
 /**
  * 配列データを合計
- * @param {array} _array
+ * @param {number[]} _array
+ * @returns {number}
  */
 const sumData = _array => _array.reduce((p, x) => p + x);
 
 /**
  * 特定の値で埋めた配列を作成
  * @param {number} _length 
- * @param {any} _val 
+ * @param {string|number} [_val=0] 
+ * @returns {string[]|number[]}
  */
 const fillArray = (_length, _val = 0) => [...Array(_length)].fill(_val);
 
 /**
  * 最小配列長の配列を作成
- * @param {array} _array 
+ * @param {any[]} _array 
  * @param {number} _minLength 
  * @param {number} _defaultVal
+ * @returns {string[]|number[]}
  */
 const makeBaseArray = (_array = [], _minLength, _defaultVal) => padArray(_array, fillArray(_minLength, _defaultVal));
 
 /**
  * ベースとする配列に対して別の配列で上書き
- * @param {array} _array 
- * @param {array} _baseArray ベースとする配列
+ * @param {string[]|number[]} _array 
+ * @param {string[]|number[]} _baseArray ベースとする配列
+ * @returns {string[]|number[]}
  */
 const padArray = (_array, _baseArray) => {
 	_array?.filter(val => hasVal(val)).forEach((val, j) => _baseArray[j] = val);
@@ -431,8 +463,9 @@ const padArray = (_array, _baseArray) => {
  * ex. 上位3番目 (_num = 3) の場合
  *     [1, 3, 2, 4, 6, 4, 5] -> [[4], [6], [3, 5]]
  *     [9, 6, 9, 9, 8, 7, 5] -> [[0, 2, 3]]
- * @param {array} _array 
- * @param {number} _num
+ * @param {number[]} _array 
+ * @param {number} [_num=1]
+ * @returns {number[][]}
  */
 const getMaxValIdxs = (_array, _num = 1) => {
 	let baseArray = _array.concat();
@@ -459,55 +492,72 @@ const getMaxValIdxs = (_array, _num = 1) => {
 /**
  * 部分一致検索（リストのいずれかに合致、大小文字問わず）
  * @param {string} _str 検索文字
- * @param {array} _list 検索リスト (英字は小文字にする必要あり)
- * @param {string} prefix 前方一致条件 (前方一致時は ^)
- * @param {string} suffix 後方一致条件 (後方一致時は $)
+ * @param {string[]} _list 検索リスト (英字は小文字にする必要あり)
+ * @param {string} [object.prefix=''] 前方一致条件 (前方一致時は ^)
+ * @param {string} [object.suffix=''] 後方一致条件 (後方一致時は $)
+ * @returns {boolean}
  */
 const listMatching = (_str, _list, { prefix = ``, suffix = `` } = {}) =>
 	_list.findIndex(value => _str.toLowerCase().match(new RegExp(String.raw`${prefix}${value}${suffix}`, 'i'))) !== -1;
 
+/**
+ * 前方・後方一致検索の組み合わせ（あいまい検索）
+ * @param {string} _str 検索文字
+ * @param {string[]} _headerList 前方一致させるリスト
+ * @param {string[]} _footerList 後方一致させるリスト
+ * @returns {boolean}
+ */
 const fuzzyListMatching = (_str, _headerList, _footerList) =>
 	listMatching(_str, _headerList, { prefix: `^` }) || listMatching(_str, _footerList, { suffix: `$` });
 
 /**
  * 文字列の置換
  * @param {string} _str 
- * @param {array} _pairs 
+ * @param {string[][]} _pairs 置換ペア配列。[[置換前A,置換後A],[置換前B,置換後B]]の形式で指定
+ * @returns {string} 置換後文字列
  */
 const replaceStr = (_str, _pairs) => {
-	let tmpStr = _str || ``;
-	_pairs.forEach(pair => tmpStr = tmpStr.split(pair[0]).join(pair[1]));
+	if (_str === undefined) {
+		return _str;
+	}
+	let tmpStr = _str;
+	_pairs.forEach(pair => tmpStr = String(tmpStr)?.split(pair[0]).join(pair[1]));
 	return tmpStr;
 };
 
 /**
  * 文字列のエスケープ処理
  * @param {string} _str 
- * @param {array} _escapeList
+ * @param {string[][]} [_escapeList=g_escapeStr.escape]
+ * @returns {string}
  */
 const escapeHtml = (_str, _escapeList = g_escapeStr.escape) => escapeHtmlForEnabledTag(replaceStr(_str, _escapeList));
 
 /**
  * 文字列のエスケープ処理(htmlタグ許容版)
  * @param {string} _str 
+ * @returns {string}
  */
 const escapeHtmlForEnabledTag = _str => replaceStr(_str, g_escapeStr.escapeTag);
 
 /**
  * HTML Entityから元の文字に戻す
  * @param {string} _str 
+ * @returns {string}
  */
 const unEscapeEmoji = _str => _str?.replace(/&#(.*?);/g, (_, p1) => String.fromCodePoint(`0${p1}`));
 
 /**
  * エスケープ文字を元の文字に戻す
  * @param {string} _str 
+ * @returns {string}
  */
 const unEscapeHtml = _str => unEscapeEmoji(replaceStr(_str, g_escapeStr.unEscapeTag));
 
 /**
  * 配列の中身を全てエスケープ処理
- * @param {array} _array 
+ * @param {string[]} _array 
+ * @returns {string[]}
  */
 const escapeHtmlForArray = _array => _array.map(str => escapeHtml(str));
 
@@ -516,6 +566,7 @@ const escapeHtmlForArray = _array => _array.map(str => escapeHtml(str));
  * @param {number} _basePos 
  * @param {number} _num 
  * @param {number} _length
+ * @returns {number}
  */
 const nextPos = (_basePos, _num, _length) => (_basePos + _num + _length) % _length;
 
@@ -525,7 +576,8 @@ const nextPos = (_basePos, _num, _length) => (_basePos + _num + _length) % _leng
 
 /**
  * 特定キーコードを置換する処理
- * @param {object} _evt 
+ * @param {KeyboardEvent} _evt 
+ * @returns {string}
  */
 const transCode = _evt => {
 	const evtCode = _evt.code;
@@ -538,9 +590,9 @@ const transCode = _evt => {
 /**
  * 特定キーをブロックする処理
  * @param {string} _setCode 
+ * @returns {boolean}
  */
 const blockCode = _setCode => !C_BLOCK_KEYS.includes(_setCode);
-
 
 /*-----------------------------------------------------------*/
 /* ショートカット制御                                          */
@@ -548,10 +600,11 @@ const blockCode = _setCode => !C_BLOCK_KEYS.includes(_setCode);
 
 /**
  * キーを押したときの動作（汎用）
- * @param {object} _evt 
+ * @param {KeyboardEvent} _evt 
  * @param {string} _displayName 
  * @param {function} _func
  * @param {boolean} _dfEvtFlg
+ * @returns {boolean}
  */
 const commonKeyDown = (_evt, _displayName, _func = _code => { }, _dfEvtFlg) => {
 	if (!_dfEvtFlg) {
@@ -584,7 +637,7 @@ const commonKeyDown = (_evt, _displayName, _func = _code => { }, _dfEvtFlg) => {
 
 /**
  * キーを離したときの動作（汎用）
- * @param {object} _evt 
+ * @param {KeyboardEvent} _evt 
  */
 const commonKeyUp = _evt => {
 	g_inputKeyBuffer[g_kCdNameObj.metaLKey] = false;
@@ -596,7 +649,13 @@ const commonKeyUp = _evt => {
  * ショートカットキー表示
  * @param {object} _obj
  * @param {string} _settingLabel 
- * @param {object} objectList 
+ * @param {string} [object.displayName='option'] 
+ * @param {string} [object.dfLabel=''] ショートカットキーの表示名
+ * @param {string} [object.targetLabel='lnk${_settingLabel}R'] ショートカットキーを押したときのボタン名
+ * @param {number} [object.x=g_scViewObj.x]
+ * @param {number} [object.y=g_scViewObj.y]
+ * @param {number} [object.w=g_scViewObj.w]
+ * @param {number} [object.siz=g_scViewObj.siz]
  */
 const createScText = (_obj, _settingLabel, { displayName = `option`, dfLabel = ``, targetLabel = `lnk${_settingLabel}R`,
 	x = g_scViewObj.x, y = g_scViewObj.y, w = g_scViewObj.w, siz = g_scViewObj.siz } = {}) => {
@@ -628,19 +687,21 @@ const createScTextCommon = _displayName =>
  * ショートカットキー有効化
  * @param {string} _displayName
  * @param {function} _func 
+ * @param {boolean} [object.displayFlg=true]
+ * @param {boolean} [object.dfEvtFlg=false] 
  */
-const setShortcutEvent = (_displayName, _func = _ => true, { displayFlg = true, dfEvtFlg = false } = {}) => {
+const setShortcutEvent = (_displayName, _func = () => true, { displayFlg = true, dfEvtFlg = false } = {}) => {
 	if (displayFlg) {
 		createScTextCommon(_displayName);
 	}
-	const evList = _ => {
+	const evList = () => {
 		document.onkeydown = evt => commonKeyDown(evt, _displayName, _func, dfEvtFlg);
 		document.onkeyup = evt => commonKeyUp(evt);
 	};
 	if (g_initialFlg && g_btnWaitFrame[_displayName].initial) {
 		evList();
 	} else {
-		setTimeout(_ => {
+		setTimeout(() => {
 			if (g_currentPage === _displayName) {
 				evList();
 			}
@@ -666,6 +727,7 @@ const openLink = _url => {
 /**
  * URLのフルパスを取得
  * @param {string} _url
+ * @returns {string}
  */
 const getFullPath = _url => {
 	const link = document.createElement(`a`);
@@ -677,8 +739,8 @@ const getFullPath = _url => {
  * プリロードするファイルの設定
  * @param {string} _as 
  * @param {string} _href 
- * @param {string} _type 
- * @param {string} _crossOrigin 
+ * @param {string} [_type=''] 
+ * @param {string} [_crossOrigin='anonymous'] 
  */
 const preloadFile = (_as, _href, _type = ``, _crossOrigin = `anonymous`) => {
 
@@ -706,8 +768,9 @@ const preloadFile = (_as, _href, _type = ``, _crossOrigin = `anonymous`) => {
  * 外部jsファイルの読込 (Promise)
  * 読込可否を g_loadObj[ファイル名] で管理 (true: 読込成功, false: 読込失敗)
  * @param {string} _url 
- * @param {boolean} _requiredFlg (default : true / 読込必須)
- * @param {string} _charset (default : UTF-8)
+ * @param {boolean} [_requiredFlg=true] 読込必須フラグ
+ * @param {string} [_charset='UTF-8']
+ * @returns {Promise<any>}
  */
 const loadScript2 = (_url, _requiredFlg = true, _charset = `UTF-8`) => {
 	const baseUrl = _url.split(`?`)[0];
@@ -718,7 +781,7 @@ const loadScript2 = (_url, _requiredFlg = true, _charset = `UTF-8`) => {
 		script.type = `text/javascript`;
 		script.src = _url;
 		script.charset = _charset;
-		script.onload = _ => {
+		script.onload = () => {
 			g_loadObj[baseUrl] = true;
 			resolve(script);
 		};
@@ -738,6 +801,8 @@ const loadScript2 = (_url, _requiredFlg = true, _charset = `UTF-8`) => {
  * CSSファイルの読み込み (Promise)
  * デフォルトは danoni_skin_default.css を読み込む
  * @param {url} _href 
+ * @param {string} [object.crossOrigin='anonymous'] 
+ * @returns {Promise<any>}
  */
 const importCssFile2 = (_href, { crossOrigin = `anonymous` } = {}) => {
 	const baseUrl = _href.split(`?`)[0];
@@ -750,11 +815,11 @@ const importCssFile2 = (_href, { crossOrigin = `anonymous` } = {}) => {
 		if (!g_isFile) {
 			link.crossOrigin = crossOrigin;
 		}
-		link.onload = _ => {
+		link.onload = () => {
 			g_loadObj[baseUrl] = true;
 			resolve(link);
 		};
-		link.onerror = _ => {
+		link.onerror = () => {
 			makeWarningWindow(g_msgInfoObj.E_0041.split(`{0}`).join(getFullPath(baseUrl)), { resetFlg: `title` });
 			resolve(link);
 		};
@@ -764,8 +829,9 @@ const importCssFile2 = (_href, { crossOrigin = `anonymous` } = {}) => {
 
 /**
  * js, cssファイルの連続読込 (async function)
- * @param {array} _fileData 
+ * @param {string[]} _fileData 
  * @param {string} _loadType
+ * @returns {Promise<void>}
  */
 const loadMultipleFiles2 = async (_fileData, _loadType) => {
 	await Promise.all(_fileData.map(async filePart => {
@@ -786,9 +852,9 @@ const loadMultipleFiles2 = async (_fileData, _loadType) => {
 
 /**
  * 与えられたパスより、キーワードとディレクトリに分割
- * 返却値：[ファイルキーワード, ルートディレクトリ]
  * @param {string} _fileName 
- * @param {string} _directory
+ * @param {string} [_directory='']
+ * @returns {string[]} [ファイルキーワード, ルートディレクトリ]
  */
 const getFilePath = (_fileName, _directory = ``) => {
 	let fullPath;
@@ -803,10 +869,10 @@ const getFilePath = (_fileName, _directory = ``) => {
 
 /**
  * 画像ファイルの存在チェック後、プリロードする処理
- * @param {string} _imgPath 
- * @param {string} directory
- * @param {boolean} syncBackPath 
- * @returns 
+ * @param {string} _imgPath
+ * @param {string} [object.directory='']
+ * @param {boolean} [object.syncBackPath=true] 
+ * @returns {string}
  */
 const preloadImgFile = (_imgPath, { directory = ``, syncBackPath = true } = {}) => {
 
@@ -824,7 +890,7 @@ const preloadImgFile = (_imgPath, { directory = ``, syncBackPath = true } = {}) 
 /**
  * 画像パス部分の取得
  * @param {string} _str 
- * @returns 
+ * @returns {string}
  */
 const getImageUrlPath = _str => {
 	const matches = _str?.match(/url\("([^"]*)"\)/);
@@ -833,7 +899,8 @@ const getImageUrlPath = _str => {
 
 /**
  * カレントディレクトリを含む文字列を置換し、変更後の文字列を作成
- * @param {string} _str  
+ * @param {string} _str 
+ * @returns {string}
  */
 const reviseCssText = _str => {
 	if (getImageUrlPath(_str) !== ``) {
@@ -851,6 +918,7 @@ const reviseCssText = _str => {
 /**
  * 対象のカラーコードが明暗どちらかを判定 (true: 明色, false: 暗色)
  * @param {string} _colorStr
+ * @returns {boolean}
  */
 const checkLightOrDark = _colorStr => {
 	const r = parseInt(_colorStr.substring(1, 3), 16);
@@ -862,6 +930,7 @@ const checkLightOrDark = _colorStr => {
 /**
  * 色名をカラーコードに変換
  * @param {string} _color 
+ * @returns {string}
  */
 const colorNameToCode = _color => {
 	const cxt = document.createElement(`canvas`).getContext(`2d`);
@@ -872,24 +941,28 @@ const colorNameToCode = _color => {
 /**
  * 10進 -> 16進数変換 (カラーコード形式になるよう0埋め)
  * @param {number} _num 
+ * @returns {string}
  */
 const byteToHex = _num => _num.toString(16).padStart(2, '0');
 
 /**
  * カラーコードかどうかを判定 (簡易版)
  * @param {string} _str
+ * @returns {boolean}
  */
 const isColorCd = _str => _str.substring(0, 1) === `#`;
 
 /**
  * CSSの位置表記系かどうかをチェック
  * @param {string} _str
+ * @returns {boolean}
  */
 const hasAnglePointInfo = _str => fuzzyListMatching(_str, g_checkStr.cssHeader, g_checkStr.cssFooter);
 
 /**
  * 色名をカラーコードへ変換 (元々カラーコードの場合は除外)
  * @param {string} _color 色名
+ * @returns {string}
  */
 const colorToHex = (_color) => {
 
@@ -911,17 +984,18 @@ const colorToHex = (_color) => {
  * カラーコードの前パディング (旧Option Editor対応)
  * @param {boolean} _useFlg
  * @param {string} _colorStr 
+ * @returns {string}
  */
 const colorCdPadding = (_useFlg, _colorStr) => _useFlg ? `#${_colorStr.slice(1).padStart(6, `0`)}` : _colorStr;
 
 /**
  * グラデーション用のカラーフォーマットを作成
  * @param {string} _colorStr 
- * @param {object} _options
- *   defaultColorgrd
- *   colorCdPaddingUse
- *   objType (normal: 汎用, titleMusic: タイトル曲名, titleArrow: タイトル矢印)
- *   shadowFlg
+ * @param {string[]} [object._defaultColorgrd=g_headerObj.defaultColorgrd]
+ * @param {boolean} [object._colorCdPaddingUse=false]
+ * @param {string} [object._objType='normal'] (normal: 汎用, titleMusic: タイトル曲名, titleArrow: タイトル矢印)
+ * @param {boolean} [object._shadowFlg=false]
+ * @returns {string}
  */
 const makeColorGradation = (_colorStr, { _defaultColorgrd = g_headerObj.defaultColorgrd,
 	_colorCdPaddingUse = false, _objType = `normal`, _shadowFlg = false } = {}) => {
@@ -935,7 +1009,7 @@ const makeColorGradation = (_colorStr, { _defaultColorgrd = g_headerObj.defaultC
 	}
 
 	// 矢印の塗りつぶしの場合：透明度を50%にする
-	// 背景矢印の場合　　　　：透明度を25%にする
+	// 背景矢印の場合       ：透明度を25%にする
 	const alphaVal = (_shadowFlg && _objType !== `frz`) ? `80` : (_objType === `titleArrow` ? `40` : ``);
 
 	let convertColorStr = ``;
@@ -984,8 +1058,9 @@ const makeColorGradation = (_colorStr, { _defaultColorgrd = g_headerObj.defaultC
 /*-----------------------------------------------------------*/
 
 /**
- * 画面共通のフォント設定
- * @param {string} _priorityFont 
+ * 画面共通のフォント設定 (font-family設定を作成)
+ * @param {string} [_priorityFont=''] 優先させるフォント名 
+ * @returns {string}
  */
 const getBasicFont = (_priorityFont = ``) =>
 	[_priorityFont, g_headerObj.customFont, C_LBL_BASICFONT].filter(value => value !== ``).join(`,`);
@@ -995,6 +1070,7 @@ const getBasicFont = (_priorityFont = ``) =>
  * @param {string} _str 
  * @param {number} _fontsize 
  * @param {string} _font 
+ * @returns {number}
  */
 const getStrWidth = (_str, _fontsize, _font) => {
 	const ctx = document.createElement(`canvas`).getContext(`2d`);
@@ -1009,6 +1085,7 @@ const getStrWidth = (_str, _fontsize, _font) => {
  * @param {string} _font 
  * @param {number} _maxFontsize
  * @param {number} _minFontsize
+ * @returns {number}
  */
 const getFontSize = (_str, _maxWidth, _font = getBasicFont(), _maxFontsize = 64, _minFontsize = 5) => {
 	for (let siz = _maxFontsize; siz >= _minFontsize; siz--) {
@@ -1023,7 +1100,9 @@ const getFontSize = (_str, _maxWidth, _font = getBasicFont(), _maxFontsize = 64,
  * 補足説明部分のラベル作成
  * @param {string} _id 
  * @param {string} _str 
- * @param {string} _altId
+ * @param {string} [object.altId=_id]
+ * @param {number} [object.siz=g_limitObj.mainSiz] 
+ * @returns {HTMLDivElement}
  */
 const createDescDiv = (_id, _str, { altId = _id, siz = g_limitObj.mainSiz } = {}) =>
 	createDivCss2Label(_id, _str, Object.assign(g_lblPosObj[altId], {
@@ -1035,15 +1114,15 @@ const createDescDiv = (_id, _str, { altId = _id, siz = g_limitObj.mainSiz } = {}
 /*-----------------------------------------------------------*/
 
 /**
- * 図形の描画
- * - div子要素の作成。呼び出しただけでは使用できないので、親divよりappendChildすること。
- * - 詳細は @see {@link createButton} も参照のこと。 
+ * 図形の描画 (div要素)
+ * - 親divに対してこの関数の返却値に対してappendすることで描画される
  * @param {string} _id
  * @param {number} _x 
  * @param {number} _y 
  * @param {number} _width 
  * @param {number} _height 
- * @param {array} _classes
+ * @param {string[]} _classes
+ * @returns {HTMLDivElement}
  */
 const createDiv = (_id, _x, _y, _width, _height, _classes = []) => {
 	const div = document.createElement(`div`);
@@ -1076,8 +1155,15 @@ const setUserSelect = (_style, _value = C_DIS_NONE) => {
  * 子div要素のラベル文字作成 (CSS版・拡張属性対応)
  * @param {string} _id 
  * @param {string} _text 
- * @param {object} _obj (x, y, w, h, siz, align, ...rest)
+ * @param {number} [object.x=0]
+ * @param {number} [object.y=0]
+ * @param {number} [object.w=g_limitObj.setLblWidth]
+ * @param {number} [object.h=g_limitObj.setLblHeight]
+ * @param {number} [object.siz=g_limitObj.setLblSiz]
+ * @param {number} [object.align='center']
+ * @param {...any} [object.rest]
  * @param {...any} _classes 
+ * @returns {HTMLDivElement}
  */
 const createDivCss2Label = (_id, _text, { x = 0, y = 0, w = g_limitObj.setLblWidth, h = g_limitObj.setLblHeight,
 	siz = g_limitObj.setLblSiz, align = C_ALIGN_CENTER, ...rest } = {}, ..._classes) => {
@@ -1101,6 +1187,7 @@ const createDivCss2Label = (_id, _text, { x = 0, y = 0, w = g_limitObj.setLblWid
  * @param {number} _y 
  * @param {number} _width 
  * @param {number} _height 
+ * @returns {HTMLDivElement}
  */
 const createImg = (_id, _imgPath, _x, _y, _width, _height) => {
 	const div = createDiv(_id, _x, _y, _width, _height);
@@ -1114,7 +1201,9 @@ const createImg = (_id, _imgPath, _x, _y, _width, _height) => {
  * @param {string} _parentObj
  * @param {string} _id
  * @param {function} _func 
- * @param {object} _obj
+ * @param {number} [object.x=0]
+ * @param {number} [object.y=0]
+ * @returns {HTMLInputElement}
  */
 const createColorPicker = (_parentObj, _id, _func, { x = 0, y = 0 } = {}) => {
 	const picker = document.createElement(`input`);
@@ -1131,8 +1220,15 @@ const createColorPicker = (_parentObj, _id, _func, { x = 0, y = 0 } = {}) => {
 /**
  * 色付きオブジェクトの作成 (拡張属性対応)
  * @param {string} _id 
- * @param {object} _obj (x, y, w, h, color, rotate, styleName, ...rest) 
+ * @param {number} [object.x=0]
+ * @param {number} [object.y=0]
+ * @param {number} [object.w=C_ARW_WIDTH]
+ * @param {number} [object.h=C_ARW_WIDTH]
+ * @param {string} [object.rotate='']
+ * @param {string} [object.styleName='']
+ * @param {...any} [object.rest]
  * @param {...any} _classes 
+ * @returns {HTMLDivElement}
  */
 const createColorObject2 = (_id,
 	{ x = 0, y = 0, w = C_ARW_WIDTH, h = C_ARW_WIDTH, rotate = ``, styleName = ``, ...rest } = {}, ..._classes) => {
@@ -1164,10 +1260,16 @@ const createColorObject2 = (_id,
 /**
  * 空スプライト(ムービークリップ相当)の作成
  * - 作成済みの場合はすでに作成済のスプライトを返却する
- * @param {object} _parentObj 親スプライト
+ * @param {HTMLDivElement} _parentObj 親スプライト
  * @param {string} _newObjId 作成する子スプライト名
- * @param {object} _obj (x, y, w, h, ...rest)
+ * @param {number} [object.x=0]
+ * @param {number} [object.y=0]
+ * @param {number} [object.w=g_sWidth]
+ * @param {number} [object.h=g_sHeight]
+ * @param {string} [object.title]
+ * @param {...any} [object.rest]
  * @param  {...any} _classes
+ * @returns {HTMLDivElement}
  */
 const createEmptySprite = (_parentObj, _newObjId, { x = 0, y = 0, w = g_sWidth, h = g_sHeight, title = ``, ...rest } = {}, ..._classes) => {
 	if (document.getElementById(_newObjId) !== null) {
@@ -1187,7 +1289,9 @@ const createEmptySprite = (_parentObj, _newObjId, { x = 0, y = 0, w = g_sWidth, 
 /**
  * 階層スプライト（全体）の作成
  * @param {string} _baseName 
- * @param {number} _num 
+ * @param {number} _num 階層数
+ * @param {number} [object.x=0]
+ * @returns {HTMLDivElement}
  */
 const createMultipleSprite = (_baseName, _num, { x = 0 } = {}) => {
 	const sprite = createEmptySprite(divRoot, _baseName);
@@ -1204,11 +1308,19 @@ const createMultipleSprite = (_baseName, _num, { x = 0 } = {}) => {
  * - イベントリスナー作成時にリスナーキー(key)を発行する
  * - 削除時は発行したリスナーキーを指定して削除する
  */
-const g_handler = (_ => {
+const g_handler = (() => {
 	const events = {};
 	let key = 0;
 
 	return {
+		/**
+		 * イベントリスナーへの追加
+		 * @param {EventTarget} _target 
+		 * @param {string} _type 
+		 * @param {EventListenerOrEventListenerObject} _listener 
+		 * @param {boolean} [_capture=false] 
+		 * @returns {number}
+		 */
 		addListener: (_target, _type, _listener, _capture = false) => {
 			_target.addEventListener(_type, _listener, _capture);
 			events[key] = {
@@ -1219,6 +1331,10 @@ const g_handler = (_ => {
 			};
 			return key++;
 		},
+		/**
+		 * イベントリスナーの削除
+		 * @param {number} key 
+		 */
 		removeListener: key => {
 			if (key in events) {
 				const e = events[key];
@@ -1259,13 +1375,24 @@ const deleteDiv = (_parentId, _idName) => {
  * @param {string} _id 
  * @param {string} _text
  * @param {function} _func
- * @param {object} _obj (x, y, w, h, siz, align, title, groupName, initDisabledFlg, ...rest)
+ * @param {number} [object.x]
+ * @param {number} [object.y]
+ * @param {number} [object.w=g_btnWidth() / 3]
+ * @param {number} [object.h=g_limitObj.btnHeight]
+ * @param {number} [object.siz=g_limitObj.btnSiz]
+ * @param {string} [object.align='center']
+ * @param {string} [object.title] ボタンオンマウス時のコメント
+ * @param {string} [object.groupName] 画面名 (g_btnWaitFrameで定義しているプロパティ名を指定)
+ * @param {boolean} [object.initDisabledFlg=true] ボタン有効化までの時間を設けるかどうか
+ * @param {function} [object.resetFunc] カスタム処理後に実行する処理
+ * @param {function} [object.cxtFunc] 右クリック時に実行する処理
+ * @param {...any} [object.rest]
  * @param {...any} _classes 
  */
-const createCss2Button = (_id, _text, _func = _ => true, {
+const createCss2Button = (_id, _text, _func = () => true, {
 	x = 0, y = g_sHeight - 100, w = g_btnWidth() / 3, h = g_limitObj.btnHeight,
 	siz = g_limitObj.btnSiz, align = C_ALIGN_CENTER, title = ``, groupName = g_currentPage, initDisabledFlg = true,
-	resetFunc = _ => true, cxtFunc = _ => true, ...rest } = {}, ..._classes) => {
+	resetFunc = () => true, cxtFunc = () => true, ...rest } = {}, ..._classes) => {
 
 	const div = createDiv(_id, x, y, w, h, [`button_common`, ..._classes]);
 	div.innerHTML = _text;
@@ -1285,7 +1412,7 @@ const createCss2Button = (_id, _text, _func = _ => true, {
 		if (g_initialFlg && g_btnWaitFrame[groupName].initial) {
 		} else {
 			style.pointerEvents = C_DIS_NONE;
-			setTimeout(_ => style.pointerEvents = rest.pointerEvents ?? `auto`,
+			setTimeout(() => style.pointerEvents = rest.pointerEvents ?? `auto`,
 				g_btnWaitFrame[groupName].b_frame * 1000 / g_fps);
 		}
 	}
@@ -1331,7 +1458,13 @@ const createCss2Button = (_id, _text, _func = _ => true, {
 /**
  * オブジェクトのスタイル一括変更
  * @param {string} _id 
- * @param {object} _obj (x, y, w, h, siz, align, title, ...rest) 
+ * @param {number} [object.x]
+ * @param {number} [object.y]
+ * @param {number} [object.w]
+ * @param {number} [object.h]
+ * @param {string} [object.align]
+ * @param {string} [object.title]
+ * @param {...any} [object.rest]
  */
 const changeStyle = (_id, { x, y, w, h, siz, align, title, ...rest } = {}) => {
 	const div = document.getElementById(_id);
@@ -1362,6 +1495,7 @@ const changeStyle = (_id, { x, y, w, h, siz, align, title, ...rest } = {}) => {
  * @param {string} _titlename 
  * @param {number} _x 
  * @param {number} _y 
+ * @param {...any} [_classes]
  */
 const getTitleDivLabel = (_id, _titlename, _x, _y, ..._classes) =>
 	createDivCss2Label(_id, _titlename, { x: _x, y: _y, w: g_sWidth, h: 50, siz: g_limitObj.btnSiz }, ..._classes);
@@ -1369,8 +1503,8 @@ const getTitleDivLabel = (_id, _titlename, _x, _y, ..._classes) =>
 /**
  * キーコントロールの初期化
  */
-const resetKeyControl = _ => {
-	document.onkeyup = _ => { };
+const resetKeyControl = () => {
+	document.onkeyup = () => { };
 	document.onkeydown = evt => {
 		evt.preventDefault();
 		return blockCode(transCode(evt));
@@ -1380,7 +1514,9 @@ const resetKeyControl = _ => {
 
 /**
  * Canvasのベース背景を作成
- * @param {*} _ctx 
+ * @param {CanvasRenderingContext2D} _ctx
+ * @param {number} [object.w=g_sWidth]
+ * @param {number} [object.h=g_sHeight] 
  */
 const makeBgCanvas = (_ctx, { w = g_sWidth, h = g_sHeight } = {}) => {
 	const grd = _ctx.createLinearGradient(0, 0, 0, h);
@@ -1395,6 +1531,8 @@ const makeBgCanvas = (_ctx, { w = g_sWidth, h = g_sHeight } = {}) => {
  * - divオブジェクト(ボタンなど)はdivRoot配下で管理しているため、子要素のみを全削除している。
  * - dicRoot自体を削除しないよう注意すること。
  * - 再描画時に共通で表示する箇所はここで指定している。
+ * @param {boolean} [_redrawFlg=false] 画面横幅を再定義し、Canvas背景を再描画するかどうか
+ * @param {string} [_customDisplayName=''] 画面名(メイン画面: 'Main', それ以外: 空)
  */
 const clearWindow = (_redrawFlg = false, _customDisplayName = ``) => {
 	resetKeyControl();
@@ -1468,7 +1606,6 @@ const clearWindow = (_redrawFlg = false, _customDisplayName = ``) => {
 
 		Object.keys(g_headerObj).filter(val => val.startsWith(`--`) && hasVal(g_headerObj[val])).forEach(prop =>
 			document.documentElement.style.setProperty(prop, getCssCustomProperty(prop, g_headerObj[prop])));
-
 	}
 };
 
@@ -1476,6 +1613,7 @@ const clearWindow = (_redrawFlg = false, _customDisplayName = ``) => {
  * CSSカスタムプロパティの値を作成
  * @param {string} _prop 
  * @param {string} _propData 
+ * @returns {string}
  */
 const getCssCustomProperty = (_prop, _propData) =>
 	document.documentElement.style.getPropertyValue(_propData) || (g_cssBkProperties[_propData] ?? (
@@ -1485,7 +1623,7 @@ const getCssCustomProperty = (_prop, _propData) =>
 /**
  * CSSカスタムプロパティの値をオブジェクトへ退避
  */
-const getCssCustomProperties = _ => {
+const getCssCustomProperties = () => {
 	try {
 		const htmlStyle = document.documentElement.computedStyleMap();
 		for (const [propertyName, value] of htmlStyle.entries()) {
@@ -1521,6 +1659,16 @@ const getCssCustomProperties = _ => {
 /**
  * 背景・マスク用画像の描画
  * @param {object} _obj 
+ * @param {string} _obj.path 画像のパス
+ * @param {string} _obj.class 画像を装飾するCSSクラス名
+ * @param {string} _obj.left 画像の位置(x座標)
+ * @param {string} _obj.top 画像の位置(y座標)
+ * @param {number} _obj.width 画像の幅
+ * @param {string} _obj.height 画像の高さ (他との共用項目のため、stringで受ける)
+ * @param {string} _obj.animationName アニメーション名
+ * @param {string} _obj.animationDuration アニメーションを動かす間隔(秒)
+ * @param {number} _obj.opacity 画像の不透明度
+ * @returns {string}
  */
 const makeSpriteImage = _obj => {
 	let tmpInnerHTML = `<img src=${_obj.path} class="${_obj.class}"	style="position:absolute;left:${wUnit(_obj.left)};top:${wUnit(_obj.top)}`;
@@ -1537,6 +1685,16 @@ const makeSpriteImage = _obj => {
 /**
  * 背景・マスク用テキストの描画
  * @param {object} _obj 
+ * @param {string} _obj.path テキスト本体
+ * @param {string} _obj.class テキストを装飾するCSSクラス名
+ * @param {string} _obj.left テキストの位置(x座標)
+ * @param {string} _obj.top テキストの位置(y座標)
+ * @param {number} _obj.width テキストのフォントサイズ (font-size)
+ * @param {string} _obj.height テキストの色 (color)
+ * @param {string} _obj.animationName アニメーション名
+ * @param {string} _obj.animationDuration アニメーションを動かす間隔(秒)
+ * @param {number} _obj.opacity テキストの不透明度
+ * @returns {string}
  */
 const makeSpriteText = _obj => {
 	let tmpInnerHTML = `<span class="${_obj.class}"	style="display:inline-block;position:absolute;left:${wUnit(_obj.left)};top:${wUnit(_obj.top)}`;
@@ -1557,7 +1715,8 @@ const makeSpriteText = _obj => {
 /**
  * 多重配列の存在をチェックし、
  * 存在しない場合は作成、存在する場合は重複を避けて配列を新規作成
- * @param {object, array} _obj 
+ * @param {any[][]} _obj 
+ * @returns [多重配列(初期化済),配列初期化済数]
  */
 const checkDuplicatedObjects = _obj => {
 	let dataCnts = 0;
@@ -1580,6 +1739,7 @@ const checkDuplicatedObjects = _obj => {
  * 多層スプライトデータの作成処理
  * @param {string} _data 
  * @param {function} _calcFrame 
+ * @returns [多層スプライトデータ, 最大深度]
  */
 const makeSpriteData = (_data, _calcFrame = _frame => _frame) => {
 
@@ -1667,7 +1827,7 @@ const makeSpriteData = (_data, _calcFrame = _frame => _frame) => {
  * スタイル変更データの作成処理
  * @param {string} _data 
  * @param {function} _calcFrame 
- * @returns 
+ * @returns [多層スプライトデータ, 1(固定)]
  */
 const makeStyleData = (_data, _calcFrame = _frame => _frame) => {
 	const spriteData = [];
@@ -1694,12 +1854,14 @@ const makeStyleData = (_data, _calcFrame = _frame => _frame) => {
 /**
  * 画像ファイルかどうかをチェック
  * @param {string} _str 
+ * @returns {boolean}
  */
 const checkImage = _str => listMatching(_str, g_imgExtensions, { prefix: `[.]`, suffix: `$` });
 
 /**
  * back/masktitle(result)において、ジャンプ先のフレーム数を取得
- * @param {string} _frames 
+ * @param {string} _frames ジャンプ先のフレーム数情報。コロン指定でジャンプ先を確率で分岐 (ex. 300:1500:1500)
+ * @returns {number}
  */
 const getSpriteJumpFrame = _frames => {
 	const jumpFrames = _frames.split(`:`);
@@ -1711,7 +1873,7 @@ const getSpriteJumpFrame = _frames => {
  * 背景・マスクモーションの表示（共通処理）
  * @param {object} _spriteData 
  * @param {string} _name 
- * @param {boolean} _condition 
+ * @param {boolean} [_condition=true] 
  */
 const drawBaseSpriteData = (_spriteData, _name, _condition = true) => {
 	const baseSprite = document.getElementById(`${_name}Sprite${_spriteData.depth}`);
@@ -1744,6 +1906,7 @@ const drawBaseSpriteData = (_spriteData, _name, _condition = true) => {
  * @param {number} _frame 
  * @param {string} _displayName title / result
  * @param {string} _depthName back / mask
+ * @returns {number}
  */
 const drawSpriteData = (_frame, _displayName, _depthName) => {
 
@@ -1783,6 +1946,7 @@ const drawMainSpriteData = (_frame, _depthName) =>
  * スタイル切替
  * @param {number} _frame 
  * @param {string} _displayName
+ * @returns {number}
  */
 const drawStyleData = (_frame, _displayName) => {
 	g_headerObj[`style${toCapitalize(_displayName)}Data`][_frame].forEach(tmpObj =>
@@ -1921,6 +2085,7 @@ const copyTextToClipboard = async (_textVal, _msg) => {
 /**
  * 現在URLのクエリパラメータから指定した値を取得
  * @param {string} _name
+ * @returns {string}
  */
 const getQueryParamVal = _name => {
 	const param = new URL(location.href).searchParams.get(_name);
@@ -1929,8 +2094,9 @@ const getQueryParamVal = _name => {
 
 /**
  * ローディング文字用ラベルの作成
+ * @returns {HTMLDivElement}
  */
-const getLoadingLabel = _ => createDivCss2Label(`lblLoading`, g_lblNameObj.nowLoading, {
+const getLoadingLabel = () => createDivCss2Label(`lblLoading`, g_lblNameObj.nowLoading, {
 	x: 0, y: g_sHeight - 40, w: g_sWidth, h: g_limitObj.setLblHeight,
 	siz: g_limitObj.setLblSiz, align: C_ALIGN_RIGHT,
 });
@@ -1938,6 +2104,7 @@ const getLoadingLabel = _ => createDivCss2Label(`lblLoading`, g_lblNameObj.nowLo
 /**
  * フレーム数を時間表示へ変換
  * @param {number} _frame 
+ * @returns {string}
  */
 const transFrameToTimer = _frame => {
 	const minutes = Math.floor(_frame / g_fps / 60);
@@ -1949,6 +2116,7 @@ const transFrameToTimer = _frame => {
  * 疑似タイマー表記をフレーム数へ変換
  * |endFrame=1:35.20|
  * @param {string} _str 
+ * @returns {number|string}
  */
 const transTimerToFrame = _str => {
 	if (_str.indexOf(`:`) !== -1) {
@@ -2127,9 +2295,13 @@ const initialControl = async () => {
 			// 譜面ファイルが分割されている場合、譜面詳細情報取得のために譜面をロード
 			if (g_stateObj.dosDivideFlg) {
 				await loadChartFile(j);
-				resetColorAndGauge(j);
+				resetColorSetting(j);
 			}
 			getScoreDetailData(j);
+		}
+		const loopCount = g_stateObj.dosDivideFlg ? g_headerObj.keyLabels.length : 1;
+		for (let j = 0; j < loopCount; j++) {
+			resetGaugeSetting(j);
 		}
 	}
 	g_customJsObj.preTitle.forEach(func => func());
@@ -2139,7 +2311,7 @@ const initialControl = async () => {
 /**
  * 作品別ローカルストレージの読み込み・初期設定
  */
-const loadLocalStorage = _ => {
+const loadLocalStorage = () => {
 	// URLからscoreId, h(高さ)を削除
 	const url = new URL(location.href);
 	url.searchParams.delete(`scoreId`);
@@ -2206,6 +2378,7 @@ const loadLocalStorage = _ => {
 /**
  * 譜面データを分割して値を取得
  * @param {string} _dos 譜面データ
+ * @returns 
  */
 const dosConvert = (_dos = ``) => {
 
@@ -2277,16 +2450,22 @@ const loadChartFile = async (_scoreId = g_stateObj.scoreId) => {
 };
 
 /**
- * 譜面をファイルで分割している場合に初期色やゲージ情報を追加取得
+ * 譜面をファイルで分割している場合に初期色を追加取得
  * @param {string} _scoreId 
  */
-const resetColorAndGauge = _scoreId => {
+const resetColorSetting = _scoreId => {
 	// 初期矢印・フリーズアロー色の再定義
 	if (g_stateObj.scoreLockFlg) {
 		Object.assign(g_rootObj, copySetColor(g_rootObj, _scoreId));
 	}
 	Object.assign(g_headerObj, resetBaseColorList(g_headerObj, g_rootObj, { scoreId: _scoreId }));
+};
 
+/**
+ * 譜面をファイルで分割している場合にゲージ情報を追加取得
+ * @param {string} _scoreId 
+ */
+const resetGaugeSetting = _scoreId => {
 	// ライフ設定のカスタム部分再取得（譜面ヘッダー加味）
 	Object.assign(g_gaugeOptionObj, resetCustomGauge(g_rootObj, { scoreId: _scoreId }));
 	Object.keys(g_gaugeOptionObj.customFulls).forEach(gaugePtn => getGaugeSetting(g_rootObj, gaugePtn, g_headerObj.difLabels.length, { scoreId: _scoreId }));
@@ -2296,6 +2475,7 @@ const resetColorAndGauge = _scoreId => {
  * 譜面番号固定かつ譜面ファイル分割時に初期色情報を他譜面へコピー
  * @param {object} _baseObj 
  * @param {number} _scoreId
+ * @returns 
  */
 const copySetColor = (_baseObj, _scoreId) => {
 	const obj = {};
@@ -2311,6 +2491,7 @@ const copySetColor = (_baseObj, _scoreId) => {
 /**
  * MusicUrlの基本情報を取得
  * @param {number} _scoreId
+ * @returns {string}
  */
 const getMusicUrl = _scoreId =>
 	g_headerObj.musicUrls?.[g_headerObj.musicNos[_scoreId]] ?? g_headerObj.musicUrls?.[0] ?? `nosound.mp3`;
@@ -2421,6 +2602,8 @@ const storeBaseData = (_scoreId, _scoreObj, _keyCtrlPtn) => {
 /**
  * ツール計算
  * @param {object} _scoreObj 
+ * @param {number[][]} _scoreObj.arrowData
+ * @param {number[][]} _scoreObj.frzData
  */
 const calcLevel = _scoreObj => {
 	//--------------------------------------------------------------
@@ -2584,7 +2767,7 @@ const calcLevel = _scoreObj => {
 /**
  * ロケールを含んだヘッダーの優先度設定
  * @param {object} _obj 
- * @param {...any} _params
+ * @param {...any} [_params]
  */
 const getHeader = (_obj, ..._params) => {
 	let headerLocale, headerDf;
@@ -2598,12 +2781,14 @@ const getHeader = (_obj, ..._params) => {
 /**
  * ヘッダー名の互換設定
  * @param {string} _param 
+ * @returns {string[]}
  */
 const getHname = _param => [_param, _param.toLowerCase()];
 
 /**
  * 譜面ヘッダーの分解（スキン、jsファイルなどの設定）
  * @param {object} _dosObj
+ * @returns
  */
 const preheaderConvert = _dosObj => {
 
@@ -2625,6 +2810,9 @@ const preheaderConvert = _dosObj => {
 			obj.jsData.push([_type === `skin` ? `danoni_skin_${jsFile}.js` : jsFile, jsDir]);
 		});
 
+	const convLocalPath = (_file, _type) =>
+		g_remoteFlg && !_file.includes(`(..)`) ? `(..)../${_type}/${_file}` : _file;
+
 	// 外部スキンファイルの指定
 	const tmpSkinType = _dosObj.skinType ?? g_presetObj.skinType ?? `default`;
 	const tmpSkinTypes = tmpSkinType.split(`,`);
@@ -2633,11 +2821,13 @@ const preheaderConvert = _dosObj => {
 
 	// 外部jsファイルの指定
 	const tmpCustomjs = getHeader(_dosObj, ...getHname(`customJs`)) ?? g_presetObj.customJs ?? C_JSF_CUSTOM;
-	setJsFiles(tmpCustomjs.replaceAll(`*`, g_presetObj.customJs).split(`,`), C_DIR_JS);
+	setJsFiles(tmpCustomjs.replaceAll(`*`, g_presetObj.customJs).split(`,`)
+		.map(file => convLocalPath(file, `js`)), C_DIR_JS);
 
 	// 外部cssファイルの指定
 	const tmpCustomcss = getHeader(_dosObj, ...getHname(`customCss`)) ?? g_presetObj.customCss ?? ``;
-	setJsFiles(tmpCustomcss.replaceAll(`*`, g_presetObj.customCss).split(`,`), C_DIR_CSS);
+	setJsFiles(tmpCustomcss.replaceAll(`*`, g_presetObj.customCss).split(`,`)
+		.map(file => convLocalPath(file, `css`)), C_DIR_CSS);
 
 	// デフォルト曲名表示、背景、Ready表示の利用有無
 	g_titleLists.init.forEach(objName => {
@@ -2655,6 +2845,7 @@ const preheaderConvert = _dosObj => {
 /**
  * 譜面ヘッダーの分解（その他の設定）
  * @param {object} _dosObj 譜面データオブジェクト
+ * @returns
  */
 const headerConvert = _dosObj => {
 
@@ -2852,7 +3043,7 @@ const headerConvert = _dosObj => {
 		difs.forEach(dif => {
 			const difDetails = dif.split(`,`);
 			const lifeData = (_type, _default) =>
-				setVal(difDetails[difpos[_type]] || g_presetObj.gauge?.[_type], _default, C_TYP_FLOAT);
+				difDetails[difpos[_type]] || g_presetObj.gauge?.[_type] || _default;
 
 			// ライフ：ノルマ、回復量、ダメージ量、初期値の設定
 			obj.lifeBorders.push(lifeData(`Border`, `x`));
@@ -2981,9 +3172,6 @@ const headerConvert = _dosObj => {
 		Object.assign(g_gaugeOptionObj, resetCustomGauge(_dosObj, { scoreId: j }));
 		Object.assign(obj, resetBaseColorList(obj, _dosObj, { scoreId: j }));
 	}
-
-	// ライフ設定のカスタム部分取得（譜面ヘッダー加味）
-	Object.keys(g_gaugeOptionObj.customFulls).forEach(gaugePtn => getGaugeSetting(_dosObj, gaugePtn, obj.difLabels.length));
 
 	// ダミー譜面の設定
 	if (hasVal(_dosObj.dummyId)) {
@@ -3314,13 +3502,17 @@ const headerConvert = _dosObj => {
 /**
  * 譜面リスト作成有無の状態を取得
  * @param {boolean} _headerFlg 
- * @param {array} _viewLists 
+ * @param {number[]} _viewLists 
+ * @returns {boolean}
  */
 const getDifSelectorUse = (_headerFlg, _viewLists = g_headerObj.viewLists) => setBoolVal(_headerFlg, _viewLists.length > 5);
 
 /**
  * カラーセットの格納
- * @param {object} obj 
+ * @param {string} object._from コピー元矢印カラーセット（の譜面番号）
+ * @param {string} object._to コピー先矢印のカラーセット（の譜面番号）
+ * @param {object} object._fromObj コピー元オブジェクト
+ * @param {object} object._toObj コピー先オブジェクト
  */
 const resetColorType = ({ _from = ``, _to = ``, _fromObj = g_headerObj, _toObj = g_headerObj } = {}) => {
 	_toObj[`setColor${_to}`] = structuredClone(_fromObj[`setColor${_from}`]);
@@ -3331,8 +3523,9 @@ const resetColorType = ({ _from = ``, _to = ``, _fromObj = g_headerObj, _toObj =
 
 /**
  * 配列にデータを先頭に追加
- * @param {array} _arr 
+ * @param {string[]|number[]} _arr 
  * @param {string} _target 
+ * @returns {string[]|number[]}
  */
 const addValtoArray = (_arr, _target) => {
 	if (!_arr.includes(_target)) {
@@ -3344,12 +3537,14 @@ const addValtoArray = (_arr, _target) => {
 /**
  * 曲名（1行）の取得
  * @param {string} _musicName 
+ * @returns {string}
  */
 const getMusicNameSimple = _musicName => replaceStr(_musicName, g_escapeStr.musicNameSimple);
 
 /**
  * 曲名（複数行）の取得
  * @param {string} _musicName 
+ * @returns {string[]}
  */
 const getMusicNameMultiLine = _musicName => {
 	const tmpName = replaceStr(_musicName, g_escapeStr.musicNameMultiLine).split(`<br>`);
@@ -3358,7 +3553,10 @@ const getMusicNameMultiLine = _musicName => {
 
 /**
  * 画像セットの入れ替え処理
- * @param {array} _imgType 
+ * @param {object} _imgType
+ * @param {string} _imgType.name
+ * @param {string} _imgType.extension
+ * @param {boolean} _initFlg  
  */
 const updateImgType = (_imgType, _initFlg = false) => {
 	if (_initFlg) {
@@ -3368,7 +3566,7 @@ const updateImgType = (_imgType, _initFlg = false) => {
 	resetImgs(_imgType.name, _imgType.extension);
 	reloadImgObj();
 	Object.keys(g_imgObj).forEach(key => g_imgObj[key] = `${g_rootPath}${g_imgObj[key]}`);
-	if (_imgType[1] === undefined && g_presetObj.overrideExtension !== undefined) {
+	if (_imgType.extension === undefined && g_presetObj.overrideExtension !== undefined) {
 		Object.keys(g_imgObj).forEach(key => g_imgObj[key] = `${g_imgObj[key].slice(0, -3)}${g_presetObj.overrideExtension}`);
 	}
 	if (!g_isFile) {
@@ -3386,7 +3584,7 @@ const addGaugeFulls = _obj => _obj.map(key => g_gaugeOptionObj.customFulls[key] 
  * 矢印・フリーズアロー色のデータ変換
  * @param {object} _baseObj 
  * @param {object} _dosObj
- * @param {object} objectList 
+ * @param {string} [object.scoreId=''] 
  * @returns オブジェクト ※Object.assign(obj, resetBaseColorList(...))の形で呼び出しが必要
  */
 const resetBaseColorList = (_baseObj, _dosObj, { scoreId = `` } = {}) => {
@@ -3460,9 +3658,14 @@ const resetBaseColorList = (_baseObj, _dosObj, { scoreId = `` } = {}) => {
 /**
  * 矢印・フリーズアロー色のデータ展開
  * @param {string} _data 
- * @param {array} _colorInit 
+ * @param {string[]} _colorInit 
  * @param {number} _colorInitLength
- * @param {object} objectList
+ * @param {string[]} [object._defaultColorgrd=g_headerObj.defaultColorgrd]
+ * @param {boolean} [object._colorCdPaddingUse=false]
+ * @param {boolean} [object._defaultFrzColorUse=true]
+ * @param {string} [object._objType='normal']
+ * @param {boolean} [object._shadowFlg=false]
+ * @returns {string[][]}
  */
 const setColorList = (_data, _colorInit, _colorInitLength,
 	{ _defaultColorgrd = g_headerObj.defaultColorgrd, _colorCdPaddingUse = false,
@@ -3532,7 +3735,7 @@ const setColorList = (_data, _colorInit, _colorInitLength,
  * 複合カスタムゲージの定義設定
  * |customGauge=Original::F,Normal::V,Escape::V|
  * @param {object} _dosObj 
- * @param {object} objectList
+ * @param {string} [object.scoreId=0]
  * @returns オブジェクト ※Object.assign(obj, resetCustomGauge(...))の形で呼び出しが必要
  */
 const resetCustomGauge = (_dosObj, { scoreId = 0 } = {}) => {
@@ -3574,7 +3777,7 @@ const resetCustomGauge = (_dosObj, { scoreId = 0 } = {}) => {
  * @param {object} _dosObj 
  * @param {string} _name 
  * @param {number} _difLength
- * @param {object} objectList
+ * @param {string} [object.scoreId=0]
  */
 const getGaugeSetting = (_dosObj, _name, _difLength, { scoreId = 0 } = {}) => {
 
@@ -3592,19 +3795,17 @@ const getGaugeSetting = (_dosObj, _name, _difLength, { scoreId = 0 } = {}) => {
 
 	/**
 	 * ゲージ別個別配列への値格納
+	 * この時点では各種ゲージ設定は文字列のまま。setGauge関数にて数式に変換される
 	 * @param {number} _scoreId 
-	 * @param {array} _gaugeDetails 
-	 * @param {boolean} _loopFlg
+	 * @param {string[]} _gaugeDetails
+	 * @returns {boolean}
 	 */
 	const setGaugeDetails = (_scoreId, _gaugeDetails) => {
-		if (_gaugeDetails[0] === `x`) {
-			obj.lifeBorders[_scoreId] = `x`;
-		} else {
-			obj.lifeBorders[_scoreId] = setVal(_gaugeDetails[0], ``, C_TYP_FLOAT);
-		}
-		obj.lifeRecoverys[_scoreId] = setVal(_gaugeDetails[1], ``, C_TYP_FLOAT);
-		obj.lifeDamages[_scoreId] = setVal(_gaugeDetails[2], ``, C_TYP_FLOAT);
-		obj.lifeInits[_scoreId] = setVal(_gaugeDetails[3], ``, C_TYP_FLOAT);
+
+		obj.lifeBorders[_scoreId] = _gaugeDetails[0] === `x` ? `x` : _gaugeDetails[0];
+		obj.lifeRecoverys[_scoreId] = _gaugeDetails[1];
+		obj.lifeDamages[_scoreId] = _gaugeDetails[2];
+		obj.lifeInits[_scoreId] = _gaugeDetails[3];
 
 		if (gaugeUpdateFlg && hasVal(g_gaugeOptionObj[`gauge${_name}s`])) {
 			Object.keys(obj).forEach(key => Object.assign(g_gaugeOptionObj[`gauge${_name}s`][key] || [], obj[key]));
@@ -3616,7 +3817,8 @@ const getGaugeSetting = (_dosObj, _name, _difLength, { scoreId = 0 } = {}) => {
 	/**
 	 * gaugeNormal2, gaugeEasy2などの個別設定があった場合にその値から配列を作成
 	 * @param {number} _scoreId 
-	 * @param {array} _defaultGaugeList
+	 * @param {number[]} _defaultGaugeList
+	 * @returns {number[]}
 	 */
 	const getGaugeDetailList = (_scoreId, _defaultGaugeList) => {
 		if (_scoreId > 0) {
@@ -3661,14 +3863,23 @@ const getGaugeSetting = (_dosObj, _name, _difLength, { scoreId = 0 } = {}) => {
 /**
  * キー名の取得
  * @param {string} _key
+ * @returns {string} キー名
  */
-const getKeyName = _key => hasVal(g_keyObj[`keyName${_key}`]) ? g_keyObj[`keyName${_key}`] : _key;
+const getKeyName = _key => unEscapeHtml(escapeHtml(g_keyObj[`keyName${_key}`]?.[0] ?? _key));
+
+/**
+ * キー単位名の取得
+ * @param {string} _key 
+ * @returns {string} キー単位名(デフォルト: key)
+ */
+const getKeyUnitName = _key => unEscapeHtml(escapeHtml(g_keyObj[`keyName${_key}`]?.[1] ?? `key`));
 
 /**
  * KeyBoardEvent.code の値をCW Edition用のキーコードに変換
  * 簡略指定ができるように、以下の記述を許容
  * 例) KeyD -> D, ArrowDown -> Down, AltLeft -> Alt
  * @param {string} _kCdN
+ * @returns {number}
  */
 const getKeyCtrlVal = _kCdN => {
 	const convVal = Object.keys(g_kCdN).findIndex(val =>
@@ -3679,6 +3890,8 @@ const getKeyCtrlVal = _kCdN => {
 /**
  * 一時的な追加キーの設定
  * @param {object} _dosObj 
+ * @param {string[]} object.keyExtraList
+ * @returns {string[]}
  */
 const keysConvert = (_dosObj, { keyExtraList = _dosObj.keyExtraList?.split(`,`) } = {}) => {
 
@@ -3705,6 +3918,7 @@ const keysConvert = (_dosObj, { keyExtraList = _dosObj.keyExtraList?.split(`,`) 
 	/**
 	 * 略記記法を元の文字列に変換 (1...5 -> 1,2,3,4,5 / 3...+4 -> 3,4,5,6,7)
 	 * @param {string} _str 
+	 * @returns {string}
 	 */
 	const toFloatStr = _str => {
 		const nums = _str?.split(`...`);
@@ -3726,6 +3940,7 @@ const keysConvert = (_dosObj, { keyExtraList = _dosObj.keyExtraList?.split(`,`) 
 	/**
 	 * 略記記法を元の文字列に変換 (1@:5 -> 1,1,1,1,1 / onigiri!giko!c@:2 -> onigiri,giko,c,onigiri,giko,c)
 	 * @param {string} _str
+	 * @returns {string}
 	 */
 	const toSameValStr = _str => {
 		const nums = _str?.split(`@:`);
@@ -3739,6 +3954,7 @@ const keysConvert = (_dosObj, { keyExtraList = _dosObj.keyExtraList?.split(`,`) 
 	 * 例) 12_(0) -> 12_4
 	 * それ以外の文字列が来た場合は、そのままの値を戻す
 	 * @param {string} _str
+	 * @returns {string}
 	 */
 	const getKeyPtnName = _str => {
 		const regex = /\((\d+)\)/;
@@ -3756,7 +3972,7 @@ const keysConvert = (_dosObj, { keyExtraList = _dosObj.keyExtraList?.split(`,`) 
 	 *  -> |div11x=7,13|pos11x=0,1,2,3,4,5,6,7,8,12,13|
 	 * @param {number} _num 
 	 * @param {number} _divNum 
-	 * @returns 
+	 * @returns {number}
 	 */
 	const getKeyPosNum = (_num, _divNum = 0) => {
 		if (!hasVal(_num) || (!_num.startsWith(`b`) && isNaN(parseFloat(_num)))) {
@@ -3770,6 +3986,7 @@ const keysConvert = (_dosObj, { keyExtraList = _dosObj.keyExtraList?.split(`,`) 
 	 * @param {string} _str 
 	 * @param {string} _name 
 	 * @param {function} _convFunc
+	 * @returns {string[]|number[]}
 	 */
 	const expandKeyPtn = (_str, _name, _convFunc) => {
 		const pos = _str.indexOf(`>`);
@@ -3788,10 +4005,12 @@ const keysConvert = (_dosObj, { keyExtraList = _dosObj.keyExtraList?.split(`,`) 
 	 * @param {string} _key キー数
 	 * @param {string} _name 名前
 	 * @param {function} _convFunc マッピング関数
-	 * @param {object} _obj errCd エラーコード, baseCopyFlg コピー配列の準備可否, loopFunc パターン別に処理する個別関数
-	 * @returns 最小パターン数
+	 * @param {string} object.errCd エラーコード
+	 * @param {boolean} object.baseCopyFlg コピー配列の準備可否
+	 * @param {function} object.loopFunc パターン別に処理する個別関数
+	 * @returns {number} 最小パターン数
 	 */
-	const newKeyMultiParam = (_key, _name, _convFunc, { errCd = ``, baseCopyFlg = false, loopFunc = _ => true } = {}) => {
+	const newKeyMultiParam = (_key, _name, _convFunc, { errCd = ``, baseCopyFlg = false, loopFunc = () => true } = {}) => {
 		let tmpMinPatterns = 1;
 		const keyheader = _name + _key;
 		const dfPtn = setIntVal(g_keyObj.dfPtnNum);
@@ -3956,7 +4175,7 @@ const keysConvert = (_dosObj, { keyExtraList = _dosObj.keyExtraList?.split(`,`) 
 		const dfPtnNum = g_keyObj.dfPtnNum;
 
 		// キーの名前 (keyNameX)
-		g_keyObj[`keyName${newKey}`] = _dosObj[`keyName${newKey}`] ?? newKey;
+		g_keyObj[`keyName${newKey}`] = _dosObj[`keyName${newKey}`]?.split(`,`) ?? [newKey, `key`];
 
 		// キーの最小横幅 (minWidthX)
 		g_keyObj[`minWidth${newKey}`] = _dosObj[`minWidth${newKey}`] ?? g_keyObj[`minWidth${newKey}`] ?? g_keyObj.minWidthDefault;
@@ -4075,7 +4294,7 @@ const setKeyDfVal = _ptnName => {
 /**
  *  タイトル画面初期化
  */
-const titleInit = _ => {
+const titleInit = () => {
 
 	clearWindow(true);
 	g_currentPage = `title`;
@@ -4226,21 +4445,22 @@ const titleInit = _ => {
 	 * @param {string} _id 
 	 * @param {string} _text 
 	 * @param {string} _url 
+	 * @returns {HTMLDivElement}
 	 */
 	const createCreditBtn = (_id, _text, _url) =>
-		createCss2Button(_id, _text, _ => true,
-			Object.assign(g_lblPosObj[_id], { siz: getLinkSiz(_text), whiteSpace: `normal`, resetFunc: _ => openLink(_url) }), g_cssObj.button_Default);
+		createCss2Button(_id, _text, () => true,
+			Object.assign(g_lblPosObj[_id], { siz: getLinkSiz(_text), whiteSpace: `normal`, resetFunc: () => openLink(_url) }), g_cssObj.button_Default);
 
 	// ボタン描画
 	multiAppend(divRoot,
 
 		// Click Here
-		createCss2Button(`btnStart`, g_lblNameObj.clickHere, _ => clearTimeout(g_timeoutEvtTitleId), {
-			x: g_btnX(), w: g_btnWidth(), siz: g_limitObj.titleSiz, resetFunc: _ => optionInit(),
+		createCss2Button(`btnStart`, g_lblNameObj.clickHere, () => clearTimeout(g_timeoutEvtTitleId), {
+			x: g_btnX(), w: g_btnWidth(), siz: g_limitObj.titleSiz, resetFunc: () => optionInit(),
 		}, g_cssObj.button_Start),
 
 		// Reset
-		createCss2Button(`btnReset`, g_lblNameObj.dataReset, _ => {
+		createCss2Button(`btnReset`, g_lblNameObj.dataReset, () => {
 			reloadFlg = false;
 			if (window.confirm(g_msgObj.dataResetConfirm)) {
 				g_localStorage = {
@@ -4252,7 +4472,7 @@ const titleInit = _ => {
 				reloadFlg = true;
 			}
 		}, Object.assign(g_lblPosObj.btnReset, {
-			resetFunc: _ => {
+			resetFunc: () => {
 				if (reloadFlg) {
 					location.reload();
 				}
@@ -4260,9 +4480,9 @@ const titleInit = _ => {
 		}), g_cssObj.button_Reset),
 
 		// ロケール切替
-		createCss2Button(`btnReload`, g_localeObj.val, _ => true,
+		createCss2Button(`btnReload`, g_localeObj.val, () => true,
 			Object.assign(g_lblPosObj.btnReload, {
-				resetFunc: _ => {
+				resetFunc: () => {
 					g_localeObj.num = (++g_localeObj.num) % g_localeObj.list.length;
 					g_langStorage.locale = g_localeObj.list[g_localeObj.num];
 					localStorage.setItem(`danoni-locale`, JSON.stringify(g_langStorage));
@@ -4271,9 +4491,9 @@ const titleInit = _ => {
 			}), g_cssObj.button_Start),
 
 		// ヘルプ
-		createCss2Button(`btnHelp`, `?`, _ => true,
+		createCss2Button(`btnHelp`, `?`, () => true,
 			Object.assign(g_lblPosObj.btnHelp, {
-				resetFunc: _ => openLink(g_lblNameObj.helpUrl),
+				resetFunc: () => openLink(g_lblNameObj.helpUrl),
 			}), g_cssObj.button_Setting),
 
 		// 製作者表示
@@ -4283,16 +4503,16 @@ const titleInit = _ => {
 		createCreditBtn(`lnkArtist`, `${g_lblNameObj.artist}: ${g_headerObj.artistName}`, g_headerObj.artistUrl),
 
 		// バージョン描画
-		createCss2Button(`lnkVersion`, versionName, _ => true,
+		createCss2Button(`lnkVersion`, versionName, () => true,
 			Object.assign(g_lblPosObj.lnkVersion, {
 				siz: getFontSize(versionName, g_sWidth * 3 / 4 - 20, getBasicFont(), 12),
-				resetFunc: _ => openLink(`https://github.com/cwtickle/danoniplus`),
+				resetFunc: () => openLink(`https://github.com/cwtickle/danoniplus`),
 			}), g_cssObj.button_Tweet),
 
 		// セキュリティリンク
-		createCss2Button(`lnkComparison`, `&#x1f6e1;`, _ => true,
+		createCss2Button(`lnkComparison`, `&#x1f6e1;`, () => true,
 			Object.assign(g_lblPosObj.lnkComparison, {
-				resetFunc: _ => openLink(g_lblNameObj.securityUrl),
+				resetFunc: () => openLink(g_lblNameObj.securityUrl),
 			}), g_cssObj.button_Tweet),
 	);
 
@@ -4308,7 +4528,7 @@ const titleInit = _ => {
 		} else {
 			multiAppend(divRoot,
 				createDivCss2Label(`lblComment`, convCommentVal, g_lblPosObj.lblComment),
-				createCss2Button(`btnComment`, g_lblNameObj.comment, _ => {
+				createCss2Button(`btnComment`, g_lblNameObj.comment, () => {
 					const lblCommentDef = lblComment.style.display;
 					lblComment.style.display = (lblCommentDef === C_DIS_NONE ? C_DIS_INHERIT : C_DIS_NONE);
 				}, g_lblPosObj.btnComment, g_cssObj.button_Default),
@@ -4326,7 +4546,7 @@ const titleInit = _ => {
 	/**
 	 * タイトルのモーション設定
 	 */
-	const flowTitleTimeline = _ => {
+	const flowTitleTimeline = () => {
 
 		// ユーザカスタムイベント(フレーム毎)
 		g_customJsObj.titleEnterFrame.forEach(func => func());
@@ -4345,10 +4565,10 @@ const titleInit = _ => {
 	g_timeoutEvtTitleId = setTimeout(flowTitleTimeline, 1000 / g_fps);
 
 	// キー操作イベント（デフォルト）
-	setShortcutEvent(g_currentPage, _ => true, { dfEvtFlg: true });
+	setShortcutEvent(g_currentPage, () => true, { dfEvtFlg: true });
 
-	document.oncontextmenu = _ => true;
-	divRoot.oncontextmenu = _ => false;
+	document.oncontextmenu = () => true;
+	divRoot.oncontextmenu = () => false;
 
 	g_skinJsObj.title.forEach(func => func());
 };
@@ -4356,7 +4576,8 @@ const titleInit = _ => {
 /**
  * 警告用ウィンドウ（汎用）を表示
  * @param {string} _text 
- * @param {object} _options resetFlg: 警告リストをクリアして再作成, backBtnUse: Backボタンを付与
+ * @param {boolean} [object.resetFlg=false] 警告リストをクリアして再作成
+ * @param {boolean} [object.backBtnUse=false] Backボタンを付与
  */
 const makeWarningWindow = (_text = ``, { resetFlg = false, backBtnUse = false } = {}) => {
 	const displayName = (g_currentPage === `initial` ? `title` : g_currentPage);
@@ -4373,8 +4594,8 @@ const makeWarningWindow = (_text = ``, { resetFlg = false, backBtnUse = false } 
 	}
 	if (backBtnUse) {
 		// タイトルバック用ボタン
-		divRoot.appendChild(createCss2Button(`btnBack`, g_lblNameObj.b_back, _ => true, {
-			resetFunc: _ => titleInit(),
+		divRoot.appendChild(createCss2Button(`btnBack`, g_lblNameObj.b_back, () => true, {
+			resetFunc: () => titleInit(),
 		}, g_cssObj.button_Back));
 	}
 };
@@ -4382,6 +4603,8 @@ const makeWarningWindow = (_text = ``, { resetFlg = false, backBtnUse = false } 
 /**
  * お知らせウィンドウ（汎用）を表示
  * @param {string} _text 
+ * @param {string} _animationName
+ * @param {string} [object._backColor='#ccccff']
  */
 const makeInfoWindow = (_text, _animationName = ``, { _backColor = `#ccccff` } = {}) => {
 	const lblWarning = setWindowStyle(`<p>${_text}</p>`, _backColor, `#000066`, C_ALIGN_CENTER);
@@ -4402,6 +4625,10 @@ const makeInfoWindow = (_text, _animationName = ``, { _backColor = `#ccccff` } =
  * @param {string} _bkColor 
  * @param {string} _textColor 
  * @param {string} _align
+ * @param {number} [object._x=g_btnX()]
+ * @param {number} [object._y=0]
+ * @param {number} [object._w=g_btnWidth()]
+ * @returns {HTMLDivElement}
  */
 const setWindowStyle = (_text, _bkColor, _textColor, _align = C_ALIGN_LEFT, { _x = g_btnX(), _y = 0, _w = g_btnWidth() } = {}) => {
 
@@ -4452,24 +4679,24 @@ const commonSettingBtn = _labelName => {
 	multiAppend(divRoot,
 
 		// タイトル画面へ戻る
-		createCss2Button(`btnBack`, g_lblNameObj.b_back, _ => true,
+		createCss2Button(`btnBack`, g_lblNameObj.b_back, () => true,
 			Object.assign(g_lblPosObj.btnBack, {
-				animationName: (g_initialFlg ? `` : `smallToNormalY`), resetFunc: _ => titleInit(),
+				animationName: (g_initialFlg ? `` : `smallToNormalY`), resetFunc: () => titleInit(),
 			}), g_cssObj.button_Back),
 
 		// キーコンフィグ画面へ移動
-		createCss2Button(`btnKeyConfig`, g_lblNameObj.b_keyConfig, _ => true,
+		createCss2Button(`btnKeyConfig`, g_lblNameObj.b_keyConfig, () => true,
 			Object.assign(g_lblPosObj.btnKeyConfig, {
-				animationName: (g_initialFlg ? `` : `smallToNormalY`), resetFunc: _ => keyConfigInit(`Main`),
+				animationName: (g_initialFlg ? `` : `smallToNormalY`), resetFunc: () => keyConfigInit(`Main`),
 			}), g_cssObj.button_Setting),
 
 		// プレイ開始
-		makePlayButton(_ => loadMusic()),
+		makePlayButton(() => loadMusic()),
 
 		// Display設定へ移動
-		createCss2Button(`btn${_labelName}`, `>`, _ => true,
+		createCss2Button(`btn${_labelName}`, `>`, () => true,
 			Object.assign(g_lblPosObj.btnSwitchSetting, {
-				title: g_msgObj[`to${_labelName}`], resetFunc: _ => g_jumpSettingWindow[g_currentPage](),
+				title: g_msgObj[`to${_labelName}`], resetFunc: () => g_jumpSettingWindow[g_currentPage](),
 			}), g_cssObj.button_Mini),
 
 		// データセーブフラグの切替
@@ -4483,8 +4710,9 @@ const commonSettingBtn = _labelName => {
 /**
  * PLAYボタンの作成
  * @param {function} _func 
+ * @returns {HTMLDivElement}
  */
-const makePlayButton = _func => createCss2Button(`btnPlay`, g_lblNameObj.b_play, _ => true,
+const makePlayButton = _func => createCss2Button(`btnPlay`, g_lblNameObj.b_play, () => true,
 	Object.assign(g_lblPosObj.btnPlay, {
 		animationName: (g_initialFlg ? `` : `smallToNormalY`), resetFunc: _func,
 	}), g_cssObj.button_Next);
@@ -4492,7 +4720,7 @@ const makePlayButton = _func => createCss2Button(`btnPlay`, g_lblNameObj.b_play,
 /**
  * 設定・オプション画面初期化
  */
-const optionInit = _ => {
+const optionInit = () => {
 
 	clearWindow(true);
 	const divRoot = document.getElementById(`divRoot`);
@@ -4513,8 +4741,8 @@ const optionInit = _ => {
 	commonSettingBtn(`Display`);
 
 	// キー操作イベント（デフォルト）
-	setShortcutEvent(g_currentPage, _ => true, { dfEvtFlg: true });
-	document.oncontextmenu = _ => true;
+	setShortcutEvent(g_currentPage, () => true, { dfEvtFlg: true });
+	document.oncontextmenu = () => true;
 	g_initialFlg = true;
 
 	g_skinJsObj.option.forEach(func => func());
@@ -4522,7 +4750,8 @@ const optionInit = _ => {
 
 /**
  * 設定画面用スプライトリストの作成
- * @param {array} _settingList (設定名、縦位置、縦位置差分、幅差分、高さ差分)を設定別にリスト化
+ * @param {object} _settingList (設定名、縦位置、縦位置差分、幅差分、高さ差分)を設定別にリスト化
+ * @returns
  */
 const setSpriteList = _settingList => {
 	const optionWidth = (g_sWidth - 450) / 2;
@@ -4536,9 +4765,10 @@ const setSpriteList = _settingList => {
 };
 
 /**
- * スライダー共通処理
- * @param {object} _slider 
- * @param {object} _link 
+ * スライダー共通処理 (Fadein)
+ * @param {HTMLInputElement} _slider 
+ * @param {HTMLDivElement} _link 
+ * @returns {string}
  */
 const inputSlider = (_slider, _link) => {
 	const value = parseInt(_slider.value);
@@ -4547,9 +4777,10 @@ const inputSlider = (_slider, _link) => {
 };
 
 /**
- * スライダー共通処理
- * @param {object} _slider 
- * @param {object} _link 
+ * スライダー共通処理 (Appearance)
+ * @param {HTMLInputElement} _slider 
+ * @param {HTMLDivElement} _link 
+ * @returns {string}
  */
 const inputSliderAppearance = (_slider, _link) => {
 	const value = parseInt(_slider.value);
@@ -4560,12 +4791,12 @@ const inputSliderAppearance = (_slider, _link) => {
 /**
  * 譜面変更セレクターの削除
  */
-const resetDifWindow = _ => {
+const resetDifWindow = () => {
 	if (document.getElementById(`difList`) !== null) {
 		deleteChildspriteAll(`difList`);
 		[`difList`, `difCover`, `btnDifU`, `btnDifD`].forEach(obj => document.getElementById(obj).remove());
 		g_currentPage = `option`;
-		setShortcutEvent(g_currentPage, _ => true, { displayFlg: false, dfEvtFlg: true });
+		setShortcutEvent(g_currentPage, () => true, { displayFlg: false, dfEvtFlg: true });
 	}
 };
 
@@ -4573,6 +4804,7 @@ const resetDifWindow = _ => {
  * 次の譜面番号を取得 
  * @param {number} _scoreId 
  * @param {number} _scrollNum 
+ * @returns {number}
  */
 const getNextDifficulty = (_scoreId, _scrollNum) => {
 	const currentPosIdx = g_headerObj.viewLists.findIndex(val => val === _scoreId);
@@ -4593,7 +4825,7 @@ const nextDifficulty = (_scrollNum = 1) => {
 
 /**
  * 譜面リストの作成
- * @param {object} _difList 
+ * @param {HTMLDivElement} _difList 
  * @param {string} _targetKey 
  */
 const makeDifList = (_difList, _targetKey = ``) => {
@@ -4605,7 +4837,7 @@ const makeDifList = (_difList, _targetKey = ``) => {
 			if (g_headerObj.makerView) {
 				text += ` (${g_headerObj.creatorNames[j]})`;
 			}
-			_difList.appendChild(makeDifLblCssButton(`dif${k}`, text, k, _ => nextDifficulty(j - g_stateObj.scoreId),
+			_difList.appendChild(makeDifLblCssButton(`dif${k}`, text, k, () => nextDifficulty(j - g_stateObj.scoreId),
 				{ btnStyle: (j === g_stateObj.scoreId ? `Setting` : `Default`) }));
 			if (j === g_stateObj.scoreId) {
 				pos = k + 6.5 * (g_sHeight - 239) / 261;
@@ -4619,7 +4851,10 @@ const makeDifList = (_difList, _targetKey = ``) => {
 			x: 0, y: 27, w: g_limitObj.difCoverWidth, h: 16, siz: 12, fontWeight: `bold`,
 		}));
 	}
-	lblDifCnt.innerHTML = `${_targetKey === '' ? 'ALL' : _targetKey + 'k'}: ${curk === -1 ? '-' : curk + 1} / ${k}`;
+	// フィルタなし> ALL: 1/ 5, フィルタあり> 7k: 1/ 1 のように現在位置と(フィルタされた)譜面数を表示
+	// 現在位置が不確定の場合は、7k: -/ 1 のように現在位置を「-」で表示
+	const keyUnitAbbName = getStgDetailName(getKeyUnitName(_targetKey)).slice(0, 1) || ``;
+	lblDifCnt.innerHTML = `${_targetKey === '' ? 'ALL' : getKeyName(_targetKey) + keyUnitAbbName}: ${curk === -1 ? '-' : curk + 1} / ${k}`;
 	_difList.scrollTop = Math.max(pos * g_limitObj.setLblHeight - parseInt(_difList.style.height), 0);
 };
 
@@ -4629,7 +4864,7 @@ const makeDifList = (_difList, _targetKey = ``) => {
  */
 const makeDifBtn = (_scrollNum = 1) => {
 	const dir = _scrollNum === 1 ? `D` : `U`;
-	return createCss2Button(`btnDif${dir}`, g_settingBtnObj.chara[dir], _ => {
+	return createCss2Button(`btnDif${dir}`, g_settingBtnObj.chara[dir], () => {
 		do {
 			g_stateObj.scoreId = getNextDifficulty(g_stateObj.scoreId, _scrollNum);
 		} while (g_stateObj.filterKeys !== `` && g_stateObj.filterKeys !== g_headerObj.keyLabels[g_stateObj.scoreId]);
@@ -4644,7 +4879,7 @@ const makeDifBtn = (_scrollNum = 1) => {
 
 /**
  * 譜面変更セレクターの作成・再作成
- * @param {string} _key
+ * @param {string} [_key=''] 絞り込みするキー名(無指定で絞り込みしない)
  */
 const createDifWindow = (_key = ``) => {
 	g_currentPage = `difSelector`;
@@ -4658,14 +4893,14 @@ const createDifWindow = (_key = ``) => {
 
 	// ランダム選択
 	difCover.appendChild(
-		makeDifLblCssButton(`difRandom`, `RANDOM`, 0, _ => {
+		makeDifLblCssButton(`difRandom`, `RANDOM`, 0, () => {
 			nextDifficulty(Math.floor(Math.random() * g_headerObj.keyLabels.length));
 		}, { w: g_limitObj.difCoverWidth })
 	);
 
 	// 全リスト
 	difCover.appendChild(
-		makeDifLblCssButton(`keyFilter`, `ALL`, 1.9, _ => {
+		makeDifLblCssButton(`keyFilter`, `ALL`, 1.9, () => {
 			resetDifWindow();
 			g_stateObj.filterKeys = ``;
 			createDifWindow();
@@ -4676,7 +4911,7 @@ const createDifWindow = (_key = ``) => {
 	let pos = 0;
 	g_headerObj.viewKeyLists.forEach((targetKey, m) => {
 		difFilter.appendChild(
-			makeDifLblCssButton(`keyFilter${m}`, `${getKeyName(targetKey)} ${getStgDetailName('key')}`, m, _ => {
+			makeDifLblCssButton(`keyFilter${m}`, `${getKeyName(targetKey)} ${getStgDetailName(getKeyUnitName(targetKey))}`, m, () => {
 				resetDifWindow();
 				g_stateObj.filterKeys = targetKey;
 				createDifWindow(targetKey);
@@ -4691,6 +4926,10 @@ const createDifWindow = (_key = ``) => {
 	multiAppend(optionsprite, makeDifBtn(-1), makeDifBtn());
 };
 
+/**
+ * 譜面変更ボタンを押したときの処理
+ * @param {number} [_num=1] 
+ */
 const changeDifficulty = (_num = 1) => {
 	if (g_headerObj.difSelectorUse) {
 		g_stateObj.filterKeys = ``;
@@ -4708,6 +4947,7 @@ const changeDifficulty = (_num = 1) => {
 /**
  * 譜面基礎データの取得
  * @param {number} _scoreId 
+ * @returns {{ arrowCnts: number, frzCnts: number, apm: number, playingTime: string }}
  */
 const getScoreBaseData = _scoreId => {
 	const arrowCnts = sumData(g_detailObj.arrowCnt[_scoreId]);
@@ -4851,8 +5091,8 @@ const drawDensityGraph = _scoreId => {
  * @param {string} _name 表示する譜面明細のラベル
  * @param {string} _label 
  * @param {string} _value 
- * @param {number} _pos 表示位置
- * @param {string} _labelname
+ * @param {number} [_pos=0] 表示位置
+ * @param {string} [_labelname=_label]
  */
 const updateScoreDetailLabel = (_name, _label, _value, _pos = 0, _labelname = _label) => {
 	const baseLabel = (_bLabel, _bLabelname, _bAlign) =>
@@ -4871,8 +5111,14 @@ const updateScoreDetailLabel = (_name, _label, _value, _pos = 0, _labelname = _l
 
 /**
  * グラフの縦軸を描画
- * @param {object} _context 
- * @param {number} _resolution 
+ * @param {CanvasRenderingContext2D} _context 
+ * @param {number} [object._fixed=2] y座標）目盛表記する小数桁数
+ * @param {string} [object._mark=''] y座標）目盛の単位
+ * @param {number} [object._resolution=10] y座標）明細分割数
+ * @param {number} [object._a=-90]
+ * @param {number} [object._b=105]
+ * @param {number} [object._min=0] y座標）目盛の下限値
+ * @param {number} [object._max=2] y座標）目盛の上限値
  */
 const drawBaseLine = (_context, { _fixed = 2, _mark = ``, _resolution = 10, _a = -90, _b = 105, _min = 0, _max = 2 } = {}) => {
 	_context.clearRect(0, 0, g_limitObj.graphWidth, g_limitObj.graphHeight);
@@ -4890,10 +5136,13 @@ const drawBaseLine = (_context, { _fixed = 2, _mark = ``, _resolution = 10, _a =
 
 /**
  * グラフ上に目盛を表示
- * @param {object} _context 
+ * @param {CanvasRenderingContext2D} _context 
  * @param {number} _y 
  * @param {string} _lineType 
- * @param {number} _fixed
+ * @param {number} [object._fixed] y座標）目盛表記する小数桁数
+ * @param {string} [object._mark] y座標）目盛の単位
+ * @param {number} [object._a]
+ * @param {number} [object._b]
  */
 const drawLine = (_context, _y, _lineType, { _fixed, _mark, _a, _b } = {}) => {
 	const lineY = (_y - 1) * _a + _b;
@@ -4928,6 +5177,7 @@ const makeDifInfoLabels = _scoreId => {
 	 * @param {string} _lbl 
 	 * @param {string} _data 
 	 * @param {object} _obj 
+	 * @returns {HTMLDivElement}
 	 */
 	const makeDifInfoLabel = (_lbl, _data, { x = 130, y = 25, w = 125, h = 35, siz = g_limitObj.difSelectorSiz, ...rest } = {}) =>
 		createDivCss2Label(_lbl, _data, { x, y, w, h, siz, align: C_ALIGN_LEFT, ...rest });
@@ -4966,7 +5216,7 @@ const makeDifInfoLabels = _scoreId => {
 		makeDifInfoLabel(`dataArrowInfo`, ``, g_lblPosObj.dataArrowInfo),
 		makeDifInfoLabel(`lblArrowInfo2`, ``, g_lblPosObj.lblArrowInfo2),
 		makeDifInfoLabel(`dataArrowInfo2`, ``, g_lblPosObj.dataArrowInfo2),
-		makeDifLblCssButton(`lnkDifInfo`, g_lblNameObj.s_print, 8, _ => {
+		makeDifLblCssButton(`lnkDifInfo`, g_lblNameObj.s_print, 8, () => {
 			copyTextToClipboard(
 				`****** ${g_lblNameObj.s_printTitle} [${g_version}] ******\r\n\r\n`
 				+ `\t${g_lblNameObj.s_printHeader}\r\n\r\n${printData}`, g_msgInfoObj.I_0003
@@ -5151,13 +5401,13 @@ const makeHighScore = _scoreId => {
 		}
 		const resultText = `${unEscapeHtml(tweetResultTmp)}`;
 		multiAppend(detailHighScore,
-			makeDifLblCssButton(`lnkResetHighScore`, g_lblNameObj.s_resetResult, 7, _ => {
+			makeDifLblCssButton(`lnkResetHighScore`, g_lblNameObj.s_resetResult, 7, () => {
 				if (window.confirm(g_msgObj.highscResetConfirm)) {
 					delete g_localStorage.highscores[scoreName];
 					makeHighScore(_scoreId);
 				}
 			}, Object.assign({ btnStyle: `Reset` }, g_lblPosObj.lnkHighScore)),
-			makeDifLblCssButton(`lnkHighScore`, g_lblNameObj.s_result, 8, _ => {
+			makeDifLblCssButton(`lnkHighScore`, g_lblNameObj.s_result, 8, () => {
 				copyTextToClipboard(keyIsShift() ? resultCommon : resultText, g_msgInfoObj.I_0001);
 			}, g_lblPosObj.lnkHighScore),
 		);
@@ -5172,6 +5422,8 @@ const makeHighScore = _scoreId => {
  *   この関数を実行後、このフラグはONに戻るようになっている 
  * - [キーコン]->[初期化]->[名称設定]の順に配置する。
  *   初期化処理にてキー数関連の設定を行っているため、この順序で無いとデータが正しく格納されない
+ * 
+ * @param {boolean} _initFlg
  */
 const setDifficulty = (_initFlg) => {
 
@@ -5203,7 +5455,7 @@ const setDifficulty = (_initFlg) => {
 
 		if (!g_stateObj.extraKeyFlg) {
 
-			// キー別のローカルストレージの初期設定　※特殊キーは除く
+			// キー別のローカルストレージの初期設定 ※特殊キーは除く
 			g_localKeyStorage = hasKeyStorage ? JSON.parse(hasKeyStorage) : {
 				reverse: C_FLG_OFF,
 				keyCtrl: [[]],
@@ -5295,7 +5547,8 @@ const setDifficulty = (_initFlg) => {
 
 	// 譜面名設定 (Difficulty)
 	const difWidth = parseFloat(lnkDifficulty.style.width);
-	const difNames = [`${getKeyName(g_keyObj.currentKey)} ${getStgDetailName('key')} / ${g_headerObj.difLabels[g_stateObj.scoreId]}`];
+	const keyUnitName = getStgDetailName(getKeyUnitName(g_keyObj.currentKey));
+	const difNames = [`${getKeyName(g_keyObj.currentKey)} ${keyUnitName} / ${g_headerObj.difLabels[g_stateObj.scoreId]}`];
 	lnkDifficulty.style.fontSize = wUnit(getFontSize(difNames[0], difWidth, getBasicFont(), g_limitObj.setLblSiz));
 
 	if (g_headerObj.makerView) {
@@ -5366,15 +5619,15 @@ const createOptionWindow = _sprite => {
 	// 縦位置: 0 
 	spriteList.difficulty.appendChild(createLblSetting(`Difficulty`, -5));
 
-	const lnkDifficulty = makeSettingLblCssButton(`lnkDifficulty`, ``, 0, _ => changeDifficulty(), {
-		y: -10, h: g_limitObj.setLblHeight + 10, cxtFunc: _ => changeDifficulty(-1),
+	const lnkDifficulty = makeSettingLblCssButton(`lnkDifficulty`, ``, 0, () => changeDifficulty(), {
+		y: -10, h: g_limitObj.setLblHeight + 10, cxtFunc: () => changeDifficulty(-1),
 	});
 
 	// 譜面選択ボタン（メイン、右回し、左回し）
 	multiAppend(spriteList.difficulty,
 		lnkDifficulty,
-		makeMiniCssButton(`lnkDifficulty`, `R`, 0, _ => nextDifficulty(), { dy: -10, dh: 10 }),
-		makeMiniCssButton(`lnkDifficulty`, `L`, 0, _ => nextDifficulty(-1), { dy: -10, dh: 10 }),
+		makeMiniCssButton(`lnkDifficulty`, `R`, 0, () => nextDifficulty(), { dy: -10, dh: 10 }),
+		makeMiniCssButton(`lnkDifficulty`, `L`, 0, () => nextDifficulty(-1), { dy: -10, dh: 10 }),
 	);
 	createScText(spriteList.difficulty, `Difficulty`);
 	if (g_headerObj.difSelectorUse) {
@@ -5402,6 +5655,7 @@ const createOptionWindow = _sprite => {
 	 * 譜面明細子画面・グラフの作成
 	 * @param {string} _name 
 	 * @param {boolean} _graphUseFlg
+	 * @returns {HTMLDivElement}
 	 */
 	const createScoreDetail = (_name, _graphUseFlg = true) => {
 		const detailObj = createEmptySprite(scoreDetail, `detail${_name}`, g_windowObj.detailObj);
@@ -5428,12 +5682,12 @@ const createOptionWindow = _sprite => {
 
 	if (g_settings.scoreDetails.length > 0) {
 		multiAppend(spriteList.speed,
-			createCss2Button(`btnGraphB`, ``, _ => true, {
-				x: -25, y: -60, w: 0, h: 0, opacity: 0, resetFunc: _ => setScoreDetail(true),
+			createCss2Button(`btnGraphB`, ``, () => true, {
+				x: -25, y: -60, w: 0, h: 0, opacity: 0, resetFunc: () => setScoreDetail(true),
 			}, g_cssObj.button_Mini),
-			createCss2Button(`btnGraph`, `i`, _ => true, {
+			createCss2Button(`btnGraph`, `i`, () => true, {
 				x: -25, y: -60, w: 30, h: 30, siz: g_limitObj.jdgCharaSiz, title: g_msgObj.graph,
-				resetFunc: _ => setScoreDetail(), cxtFunc: _ => setScoreDetail(),
+				resetFunc: () => setScoreDetail(), cxtFunc: () => setScoreDetail(),
 			}, g_cssObj.button_Mini)
 		);
 		g_stateObj.scoreDetailViewFlg = false;
@@ -5471,7 +5725,7 @@ const createOptionWindow = _sprite => {
 		);
 		g_settings.scoreDetails.forEach((sd, j) => {
 			scoreDetail.appendChild(
-				makeDifLblCssButton(`lnk${sd}G`, getStgDetailName(sd), j, _ => changeScoreDetail(j), {
+				makeDifLblCssButton(`lnk${sd}G`, getStgDetailName(sd), j, () => changeScoreDetail(j), {
 					w: g_limitObj.difCoverWidth, h: 20, title: g_msgObj[`s_${sd}`],
 					btnStyle: (g_stateObj.scoreDetail === sd ? `Setting` : `Default`),
 				})
@@ -5482,6 +5736,7 @@ const createOptionWindow = _sprite => {
 
 	/**
 	 * 譜面明細表示／非表示ボタンの処理
+	 * @param {boolean} _resetFlg
 	 */
 	const setScoreDetail = (_resetFlg = false) => {
 		if (g_currentPage === `difSelector`) {
@@ -5512,7 +5767,7 @@ const createOptionWindow = _sprite => {
 	// リバース (Reverse) / スクロール (Scroll)
 	// 縦位置: 4
 	createGeneralSetting(spriteList.reverse, `reverse`, {
-		addRFunc: _ => {
+		addRFunc: () => {
 			if (g_headerObj.scrollUse && g_settings.scrolls.length > 1) {
 				setReverseView(document.getElementById(`btnReverse`));
 			}
@@ -5539,14 +5794,14 @@ const createOptionWindow = _sprite => {
 	// ミラー・ランダム (Shuffle)
 	// 縦位置: 5.5
 	createGeneralSetting(spriteList.shuffle, `shuffle`, g_settings.scoreDetails.length > 0 ? {
-		addRFunc: _ => makeHighScore(g_stateObj.scoreId),
+		addRFunc: () => makeHighScore(g_stateObj.scoreId),
 	} : {});
 
 	// ---------------------------------------------------
 	// 鑑賞モード設定 (AutoPlay)
 	// 縦位置: 6.5
 	createGeneralSetting(spriteList.autoPlay, `autoPlay`, g_settings.scoreDetails.length > 0 ? {
-		addRFunc: _ => makeHighScore(g_stateObj.scoreId),
+		addRFunc: () => makeHighScore(g_stateObj.scoreId),
 	} : {});
 
 	// ---------------------------------------------------
@@ -5554,14 +5809,14 @@ const createOptionWindow = _sprite => {
 	// 縦位置: 7.5
 	spriteList.gauge.appendChild(createLblSetting(`Gauge`));
 
-	// ゲージ設定詳細　縦位置: ゲージ設定+1
+	// ゲージ設定詳細 縦位置: ゲージ設定+1
 	spriteList.gauge.appendChild(createDivCss2Label(`lblGauge2`, ``, g_lblPosObj.lblGauge2));
 
 	if (g_headerObj.gaugeUse) {
 		multiAppend(spriteList.gauge,
-			makeSettingLblCssButton(`lnkGauge`, ``, 0, _ => setGauge(1), { cxtFunc: _ => setGauge(-1) }),
-			makeMiniCssButton(`lnkGauge`, `R`, 0, _ => setGauge(1)),
-			makeMiniCssButton(`lnkGauge`, `L`, 0, _ => setGauge(-1)),
+			makeSettingLblCssButton(`lnkGauge`, ``, 0, () => setGauge(1), { cxtFunc: () => setGauge(-1) }),
+			makeMiniCssButton(`lnkGauge`, `R`, 0, () => setGauge(1)),
+			makeMiniCssButton(`lnkGauge`, `L`, 0, () => setGauge(-1)),
 		);
 		createScText(spriteList.gauge, `Gauge`);
 	} else {
@@ -5590,10 +5845,10 @@ const createOptionWindow = _sprite => {
 	// 縦位置: 10.5  短縮ショートカットあり
 	createGeneralSetting(spriteList.adjustment, `adjustment`, {
 		skipTerms: g_settings.adjustmentTerms, hiddenBtn: true, scLabel: g_lblNameObj.sc_adjustment, roundNum: 5,
-		unitName: g_lblNameObj.frame, addRFunc: _ => viewAdjustment(),
+		unitName: g_lblNameObj.frame, addRFunc: () => viewAdjustment(),
 	});
 
-	const viewAdjustment = _ => {
+	const viewAdjustment = () => {
 		if (g_headerObj.playbackRate !== 1) {
 			const adjustmentVal = isLocalMusicFile(g_stateObj.scoreId) ?
 				Math.round(g_stateObj.adjustment / g_headerObj.playbackRate) :
@@ -5624,8 +5879,8 @@ const createOptionWindow = _sprite => {
 	multiAppend(spriteList.fadein,
 
 		// 右回し・左回しボタン
-		makeMiniCssButton(`lnkFadein`, `R`, 0, _ => setFadein(1)),
-		makeMiniCssButton(`lnkFadein`, `L`, 0, _ => setFadein(-1)),
+		makeMiniCssButton(`lnkFadein`, `R`, 0, () => setFadein(1)),
+		makeMiniCssButton(`lnkFadein`, `L`, 0, () => setFadein(-1)),
 
 		// フェードインのスライダー処理
 		createDivCss2Label(`lblFadeinBar`, `<input id="fadeinSlider" type="range" value="${g_stateObj.fadein}" min="0" max="99" step="1">`,
@@ -5634,7 +5889,7 @@ const createOptionWindow = _sprite => {
 	);
 
 	const fadeinSlider = document.getElementById(`fadeinSlider`);
-	fadeinSlider.addEventListener(`input`, _ =>
+	fadeinSlider.addEventListener(`input`, () =>
 		g_stateObj.fadein = inputSlider(fadeinSlider, lnkFadein), false);
 
 	// ---------------------------------------------------
@@ -5650,17 +5905,26 @@ const createOptionWindow = _sprite => {
 
 	// 設定画面の一通りのオブジェクトを作成後に譜面・速度・ゲージ設定をまとめて行う
 	setDifficulty(false);
-	optionsprite.oncontextmenu = _ => false;
+	optionsprite.oncontextmenu = () => false;
 };
 
 /**
  * 汎用設定
- * @param {object} _obj 
+ * @param {HTMLDivElement} _obj 
  * @param {string} _settingName 
- * @param {object} _options
+ * @param {string} [object.unitName=''] 設定名の単位
+ * @param {number[]} [object.skipTerms] ボタンの設定スキップ間隔(デフォルト:[1(外側), 1(内側), 1(最内側)])
+ * @param {boolean} [object.hiddenBtn=false] 隠しボタン(ショートカットキーのみ)の利用有無
+ * @param {function} [object.addRFunc] 右側のボタンを押したときの追加処理
+ * @param {function} [object.addLFunc] 左側のボタンを押したときの追加処理
+ * @param {string} [object.settingLabel=_settingName] 設定名
+ * @param {string} [object.displayName] 画面名
+ * @param {string} [object.scLabel=''] ショートカットキーの表示名
+ * @param {number} [object.roundNum=0] 設定スキップ間隔の丸め基準数
+ * @param {number} [object.adjY=0] 設定ボタンのY座標位置
  */
 const createGeneralSetting = (_obj, _settingName, { unitName = ``,
-	skipTerms = fillArray(3, 1), hiddenBtn = false, addRFunc = _ => { }, addLFunc = addRFunc,
+	skipTerms = fillArray(3, 1), hiddenBtn = false, addRFunc = () => { }, addLFunc = addRFunc,
 	settingLabel = _settingName, displayName = g_currentPage, scLabel = ``, roundNum = 0, adjY = 0 } = {}) => {
 
 	const settingUpper = toCapitalize(_settingName);
@@ -5672,39 +5936,39 @@ const createGeneralSetting = (_obj, _settingName, { unitName = ``,
 
 		multiAppend(_obj,
 			makeSettingLblCssButton(linkId, `${initName}${g_localStorage[_settingName] === g_stateObj[_settingName] ? ' *' : ''}`, 0,
-				_ => {
-					setSetting(skipTerms[1], _settingName, unitName, roundNum, { func: _ => addRFunc() });
+				() => {
+					setSetting(skipTerms[1], _settingName, unitName, roundNum, { func: () => addRFunc() });
 				}, {
-				cxtFunc: _ => {
-					setSetting(skipTerms[1] * (-1), _settingName, unitName, roundNum, { func: _ => addLFunc() });
+				cxtFunc: () => {
+					setSetting(skipTerms[1] * (-1), _settingName, unitName, roundNum, { func: () => addLFunc() });
 				}
 			}),
 
 			// 右回し・左回しボタン（外側）
-			makeMiniCssButton(linkId, `R`, 0, _ =>
-				setSetting(skipTerms[0], _settingName, unitName, roundNum, { func: _ => addRFunc() })),
-			makeMiniCssButton(linkId, `L`, 0, _ =>
-				setSetting(skipTerms[0] * (-1), _settingName, unitName, roundNum, { func: _ => addLFunc() })),
+			makeMiniCssButton(linkId, `R`, 0, () =>
+				setSetting(skipTerms[0], _settingName, unitName, roundNum, { func: () => addRFunc() })),
+			makeMiniCssButton(linkId, `L`, 0, () =>
+				setSetting(skipTerms[0] * (-1), _settingName, unitName, roundNum, { func: () => addLFunc() })),
 		);
 
 		// 右回し・左回しボタン（内側）
 		if (skipTerms[1] > 1) {
 			multiAppend(_obj,
-				makeMiniCssButton(linkId, `RR`, 0, _ =>
-					setSetting(skipTerms[1], _settingName, unitName, roundNum, { func: _ => addRFunc() })),
-				makeMiniCssButton(linkId, `LL`, 0, _ =>
-					setSetting(skipTerms[1] * (-1), _settingName, unitName, roundNum, { func: _ => addLFunc() })),
+				makeMiniCssButton(linkId, `RR`, 0, () =>
+					setSetting(skipTerms[1], _settingName, unitName, roundNum, { func: () => addRFunc() })),
+				makeMiniCssButton(linkId, `LL`, 0, () =>
+					setSetting(skipTerms[1] * (-1), _settingName, unitName, roundNum, { func: () => addLFunc() })),
 			);
 		}
 
 		// 右回し・左回しボタン（最内側）
 		if (skipTerms[2] > 1) {
 			multiAppend(_obj,
-				makeMiniCssButton(linkId, `RRR`, 0, _ =>
-					setSetting(skipTerms[2], _settingName, unitName, roundNum, { func: _ => addRFunc() })
+				makeMiniCssButton(linkId, `RRR`, 0, () =>
+					setSetting(skipTerms[2], _settingName, unitName, roundNum, { func: () => addRFunc() })
 					, { dw: -g_limitObj.setMiniWidth / 2 }),
-				makeMiniCssButton(linkId, `LLL`, 0, _ =>
-					setSetting(skipTerms[2] * (-1), _settingName, unitName, roundNum, { func: _ => addLFunc() })
+				makeMiniCssButton(linkId, `LLL`, 0, () =>
+					setSetting(skipTerms[2] * (-1), _settingName, unitName, roundNum, { func: () => addLFunc() })
 					, { dw: -g_limitObj.setMiniWidth / 2 }),
 			);
 		}
@@ -5712,8 +5976,8 @@ const createGeneralSetting = (_obj, _settingName, { unitName = ``,
 		// 右回し・左回しボタン（不可視）
 		if (hiddenBtn) {
 			multiAppend(_obj,
-				makeMiniCssButton(linkId, `HR`, 0, _ => setSetting(1, _settingName, unitName, roundNum, { func: _ => addRFunc() }), { visibility: `hidden` }),
-				makeMiniCssButton(linkId, `HL`, 0, _ => setSetting(-1, _settingName, unitName, roundNum, { func: _ => addLFunc() }), { visibility: `hidden` }),
+				makeMiniCssButton(linkId, `HR`, 0, () => setSetting(1, _settingName, unitName, roundNum, { func: () => addRFunc() }), { visibility: `hidden` }),
+				makeMiniCssButton(linkId, `HL`, 0, () => setSetting(-1, _settingName, unitName, roundNum, { func: () => addLFunc() }), { visibility: `hidden` }),
 			);
 		}
 
@@ -5731,6 +5995,7 @@ const createGeneralSetting = (_obj, _settingName, { unitName = ``,
  * @param {string} _settingName 
  * @param {number} _adjY 
  * @param {string} _settingLabel 
+ * @returns {HTMLDivElement}
  */
 const createLblSetting = (_settingName, _adjY = 0, _settingLabel = _settingName) => {
 	const lbl = createDivCss2Label(`lbl${_settingName}`, g_lblNameObj[_settingLabel], {
@@ -5743,6 +6008,7 @@ const createLblSetting = (_settingName, _adjY = 0, _settingLabel = _settingName)
 /**
  * 設定名の置き換え処理
  * @param {string} _name 
+ * @returns {string}
  */
 const getStgDetailName = _name => {
 	return g_lblNameObj[`u_${_name}`] !== undefined &&
@@ -5753,10 +6019,11 @@ const getStgDetailName = _name => {
  * 設定メイン・汎用
  * @param {number} _scrollNum 
  * @param {string} _settingName
- * @param {string} _unitName
- * @param {number} _roundNum
+ * @param {string} [_unitName] 設定の単位名
+ * @param {number} [_roundNum] 設定スキップ間隔の丸め基準数
+ * @param {function} [object.func] 設定ボタンを押した後の追加処理
  */
-const setSetting = (_scrollNum, _settingName, _unitName = ``, _roundNum = 0, { func = _ => true } = {}) => {
+const setSetting = (_scrollNum, _settingName, _unitName = ``, _roundNum = 0, { func = () => true } = {}) => {
 	let settingNum = g_settings[`${_settingName}Num`];
 	const settingList = g_settings[`${_settingName}s`];
 	const settingMax = settingList.length - 1;
@@ -5785,6 +6052,7 @@ const setSetting = (_scrollNum, _settingName, _unitName = ``, _roundNum = 0, { f
  * @param {string} _id 
  * @param {number} _heightPos 
  * @param {string} _defaultStr 
+ * @returns {HTMLDivElement}
  */
 const makeDisabledLabel = (_id, _heightPos, _defaultStr) =>
 	createDivCss2Label(_id, _defaultStr, {
@@ -5797,7 +6065,7 @@ const makeDisabledLabel = (_id, _heightPos, _defaultStr) =>
  * @param {string} _extraKeyName 特殊キー名(通常キーは省略)
  */
 const getKeyReverse = (_localStorage, _extraKeyName = ``) => {
-	if (_localStorage[`reverse${_extraKeyName}`] !== undefined) {
+	if (_localStorage[`reverse${_extraKeyName}`] !== undefined && g_headerObj.reverseUse) {
 		g_stateObj.reverse = _localStorage[`reverse${_extraKeyName}`] ?? C_FLG_OFF;
 		g_settings.reverseNum = roundZero(g_settings.reverses.findIndex(reverse => reverse === g_stateObj.reverse));
 	} else {
@@ -5808,13 +6076,13 @@ const getKeyReverse = (_localStorage, _extraKeyName = ``) => {
 /**
  * リバースのデフォルト化処理
  */
-const setReverseDefault = _ => {
+const setReverseDefault = () => {
 	g_stateObj.reverse = C_FLG_OFF;
 	g_settings.reverseNum = 0;
 };
 
 const setReverse = _btn => {
-	if (!g_settings.scrolls.includes(`Reverse`)) {
+	if (!g_settings.scrolls.includes(`Reverse`) && g_headerObj.reverseUse) {
 		g_settings.reverseNum = (g_settings.reverseNum + 1) % 2;
 		g_stateObj.reverse = g_settings.reverses[g_settings.reverseNum];
 		setReverseView(_btn);
@@ -5824,7 +6092,7 @@ const setReverse = _btn => {
 const setReverseView = _btn => {
 	_btn.classList.replace(g_cssObj[`button_Rev${g_settings.reverses[(g_settings.reverseNum + 1) % 2]}`],
 		g_cssObj[`button_Rev${g_settings.reverses[g_settings.reverseNum]}`]);
-	if (!g_settings.scrolls.includes(`Reverse`)) {
+	if (!g_settings.scrolls.includes(`Reverse`) && g_headerObj.reverseUse) {
 		_btn.textContent = `${g_lblNameObj.Reverse}:${getStgDetailName(g_stateObj.reverse)}`;
 	} else {
 		_btn.textContent = `X`;
@@ -5835,24 +6103,33 @@ const setReverseView = _btn => {
 /**
  * ゲージ設定メイン
  * @param {number} _scrollNum 
+ * @param {boolean} _gaugeInitFlg
  */
 const setGauge = (_scrollNum, _gaugeInitFlg = false) => {
 
 	/**
+	 * 数式からゲージ値に変換
+	 * arrow[] -> 矢印数, frz[] -> フリーズアロー数, all[] -> 矢印＋フリーズアロー数に置換する
+	 * @param {string} _val 
+	 * @param {string} _defaultVal
+	 * @returns {number}
+	 */
+	const getGaugeCalc = (_val, _defaultVal) => {
+		return setVal(convertStrToVal(
+			replaceStr(_val, g_escapeStr.gaugeParamName)?.split(`{0}`).join(g_stateObj.scoreId)
+		), _defaultVal, C_TYP_CALC);
+	};
+	/**
 	 * ゲージ詳細一括変更
 	 * @param {object} _baseObj 
-	 * @param {object} _obj 
+	 * @param {number} object.magInit
+	 * @param {number} object.magRcv
+	 * @param {number} object.magDmg
 	 */
 	const setLifeCategory = (_baseObj, { _magInit = 1, _magRcv = 1, _magDmg = 1 } = {}) => {
-		if (hasVal(_baseObj.lifeInits[g_stateObj.scoreId])) {
-			g_stateObj.lifeInit = _baseObj.lifeInits[g_stateObj.scoreId] * _magInit;
-		}
-		if (hasVal(_baseObj.lifeRecoverys[g_stateObj.scoreId])) {
-			g_stateObj.lifeRcv = _baseObj.lifeRecoverys[g_stateObj.scoreId] * _magRcv;
-		}
-		if (hasVal(_baseObj.lifeDamages[g_stateObj.scoreId])) {
-			g_stateObj.lifeDmg = _baseObj.lifeDamages[g_stateObj.scoreId] * _magDmg;
-		}
+		g_stateObj.lifeInit = getGaugeCalc(_baseObj.lifeInits[g_stateObj.scoreId], g_stateObj.lifeInit) * _magInit;
+		g_stateObj.lifeRcv = getGaugeCalc(_baseObj.lifeRecoverys[g_stateObj.scoreId], g_stateObj.lifeRcv) * _magRcv;
+		g_stateObj.lifeDmg = getGaugeCalc(_baseObj.lifeDamages[g_stateObj.scoreId], g_stateObj.lifeDmg) * _magDmg;
 	};
 
 	/**
@@ -5864,7 +6141,7 @@ const setGauge = (_scrollNum, _gaugeInitFlg = false) => {
 			g_stateObj.lifeBorder = 0;
 			g_stateObj.lifeMode = C_LFE_SURVIVAL;
 		} else {
-			g_stateObj.lifeBorder = _baseObj.lifeBorders[g_stateObj.scoreId];
+			g_stateObj.lifeBorder = getGaugeCalc(_baseObj.lifeBorders[g_stateObj.scoreId], g_stateObj.lifeBorder);
 			g_stateObj.lifeMode = C_LFE_BORDER;
 		}
 	};
@@ -5933,6 +6210,7 @@ const setGauge = (_scrollNum, _gaugeInitFlg = false) => {
  * @param {number} _dmg 
  * @param {number} _init 
  * @param {string} _lifeValFlg 
+ * @returns {string}
  */
 const gaugeFormat = (_mode, _border, _rcv, _dmg, _init, _lifeValFlg) => {
 	const initVal = g_headerObj.maxLifeVal * _init / 100;
@@ -6010,6 +6288,7 @@ const gaugeFormat = (_mode, _border, _rcv, _dmg, _init, _lifeValFlg) => {
  * @param {number} _dmg 
  * @param {number} _init 
  * @param {number} _allCnt 
+ * @returns {string[]}
  */
 const getAccuracy = (_border, _rcv, _dmg, _init, _allCnt) => {
 	const justPoint = _rcv + _dmg > 0 ? Math.max(_border - _init + _dmg * _allCnt, 0) / (_rcv + _dmg) : 0;
@@ -6030,6 +6309,7 @@ const getAccuracy = (_border, _rcv, _dmg, _init, _allCnt) => {
 
 /**
  * 空押し判定の設定
+ * @param {HTMLDivElement} _btn
  */
 const setExcessive = _btn => {
 	g_settings.excessiveNum = (g_settings.excessiveNum + 1) % 2;
@@ -6052,8 +6332,8 @@ const getKeyCtrl = (_localStorage, _extraKeyName = ``) => {
 		const prevPtn = g_keyObj.currentPtn;
 		g_keyObj.currentPtn = -1;
 		const copyPtn = `${g_keyObj.currentKey}_-1`;
-		g_keyObj[`keyCtrl${copyPtn}`] = [...Array(baseKeyNum)].map(_ => []);
-		g_keyObj[`keyCtrl${copyPtn}d`] = [...Array(baseKeyNum)].map(_ => []);
+		g_keyObj[`keyCtrl${copyPtn}`] = [...Array(baseKeyNum)].map(() => []);
+		g_keyObj[`keyCtrl${copyPtn}d`] = [...Array(baseKeyNum)].map(() => []);
 
 		for (let j = 0; j < baseKeyNum; j++) {
 			for (let k = 0; k < g_keyObj[`keyCtrl${basePtn}`][j].length; k++) {
@@ -6085,20 +6365,21 @@ const getKeyCtrl = (_localStorage, _extraKeyName = ``) => {
  * @param {string} _name 初期設定文字
  * @param {number} _heightPos 上からの配置順
  * @param {function} _func 通常ボタン処理
- * @param {object} objectList 座標設定(既定を上書き)
+ * @param {number} [object.x]
+ * @param {number} [object.y]
+ * @param {number} [object.w]
+ * @param {number} [object.h]
+ * @param {number} [object.siz]
+ * @param {function} [object.cxtFunc] 右クリック時の処理
+ * @param {...any} [object.rest]
  * @param {...any} _classes 追加するクラス
+ * @returns {HTMLDivElement}
  */
-const makeSettingLblCssButton = (_id, _name, _heightPos, _func, { x, y, w, h, siz, cxtFunc = _ => true, ...rest } = {}, ..._classes) => {
-	const tmpObj = {
-		x: x ?? g_limitObj.setLblLeft,
-		y: y ?? g_limitObj.setLblHeight * _heightPos,
-		w: w ?? g_limitObj.setLblWidth,
-		h: h ?? g_limitObj.setLblHeight,
-		siz: siz ?? g_limitObj.setLblSiz,
-		cxtFunc: cxtFunc ?? (_ => true),
-	};
-	return createCss2Button(_id, _name, _func, { ...tmpObj, ...rest }, g_cssObj.button_Default, ..._classes);
-};
+const makeSettingLblCssButton = (_id, _name, _heightPos, _func, {
+	x = g_limitObj.setLblLeft, y = g_limitObj.setLblHeight * _heightPos,
+	w = g_limitObj.setLblWidth, h = g_limitObj.setLblHeight, siz = g_limitObj.setLblSiz,
+	cxtFunc = () => true, ...rest } = {}, ..._classes) =>
+	createCss2Button(_id, _name, _func, { x, y, w, h, siz, cxtFunc, ...rest }, g_cssObj.button_Default, ..._classes);
 
 /**
  * 譜面変更セレクター用ボタン
@@ -6106,11 +6387,19 @@ const makeSettingLblCssButton = (_id, _name, _heightPos, _func, { x, y, w, h, si
  * @param {string} _name 初期設定文字
  * @param {number} _heightPos 上からの配置順
  * @param {function} _func
+ * @param {number} [object.x]
+ * @param {number} [object.h]
+ * @param {number} [object.y=h*_heightPos]
+ * @param {number} [object.w]
+ * @param {number} [object.siz]
+ * @param {string} [object.btnStyle='Default']
+ * @returns {HTMLDivElement}
  */
-const makeDifLblCssButton = (_id, _name, _heightPos, _func,
-	{ x = 0, w = g_limitObj.difSelectorWidth, h = g_limitObj.setLblHeight, btnStyle = `Default` } = {}) =>
+const makeDifLblCssButton = (_id, _name, _heightPos, _func, {
+	x = 0, h = g_limitObj.setLblHeight, y = h * _heightPos,
+	w = g_limitObj.difSelectorWidth, siz = g_limitObj.difSelectorSiz, btnStyle = `Default` } = {}) =>
 	createCss2Button(_id, _name, _func, {
-		x, y: h * _heightPos, w, h, siz: g_limitObj.difSelectorSiz, borderStyle: `solid`, title: g_msgObj[_id] ?? ``,
+		x, y, w, h, siz, borderStyle: `solid`, title: g_msgObj[_id] ?? ``,
 	}, g_cssObj[`button_${btnStyle}`], g_cssObj.button_ON);
 
 /**
@@ -6119,6 +6408,13 @@ const makeDifLblCssButton = (_id, _name, _heightPos, _func,
  * @param {string} _directionFlg 表示用ボタンのどちら側に置くかを設定。(R, RR:右、L, LL:左)
  * @param {number} _heightPos 上からの配置順
  * @param {function} _func 
+ * @param {number} [object.dx=0]
+ * @param {number} [object.dy=0]
+ * @param {number} [object.dw=0]
+ * @param {number} [object.dh=0]
+ * @param {number} [object.dsiz=0]
+ * @param {string} [object.visibility='visible']
+ * @returns {HTMLDivElement}
  */
 const makeMiniCssButton = (_id, _directionFlg, _heightPos, _func, { dx = 0, dy = 0, dw = 0, dh = 0, dsiz = 0, visibility = `visible` } = {}) =>
 	createCss2Button(`${_id}${_directionFlg}`, g_settingBtnObj.chara[_directionFlg], _func, {
@@ -6129,6 +6425,7 @@ const makeMiniCssButton = (_id, _directionFlg, _heightPos, _func, { dx = 0, dy =
 /**
  * カラーグループ、シャッフルグループの再設定
  * @param {string} _type 
+ * @param {string} _keyCtrlPtn
  */
 const resetGroupList = (_type, _keyCtrlPtn) => {
 	let k = 1;
@@ -6148,7 +6445,7 @@ const resetGroupList = (_type, _keyCtrlPtn) => {
 /* Scene : SETTINGS-DISPLAY [lemon] */
 /*-----------------------------------------------------------*/
 
-const settingsDisplayInit = _ => {
+const settingsDisplayInit = () => {
 
 	clearWindow(true);
 	const divRoot = document.getElementById(`divRoot`);
@@ -6175,7 +6472,7 @@ const settingsDisplayInit = _ => {
 
 	// キー操作イベント（デフォルト）
 	setShortcutEvent(g_currentPage);
-	document.oncontextmenu = _ => true;
+	document.oncontextmenu = () => true;
 
 	g_skinJsObj.settingsDisplay.forEach(func => func());
 };
@@ -6188,9 +6485,9 @@ const createSettingsDisplayWindow = _sprite => {
 
 	/**
 	 * Display表示/非表示ボタン
-	 * @param {*} _name 
-	 * @param {*} _heightPos 縦位置
-	 * @param {*} _widthPos 横位置
+	 * @param {string} _name 
+	 * @param {number} _heightPos 縦位置
+	 * @param {number} _widthPos 横位置
 	 */
 	const makeDisplayButton = (_name, _heightPos, _widthPos) => {
 
@@ -6205,10 +6502,10 @@ const createSettingsDisplayWindow = _sprite => {
 			const cssBgList = [g_settings.d_cssBgName, g_settings.d_cssBgName].concat(Array(g_settings[`d_${_name}s`]?.length).fill(g_settings.d_cssBgExName) || []);
 			const lbls = [toCapitalize(_name), toCapitalize(_name)].concat(g_settings[`d_${_name}s`] || []);
 
-			const dispView = _ => [C_FLG_OFF, C_FLG_ON].includes(g_stateObj[`d_${_name.toLowerCase()}`]) ?
+			const dispView = () => [C_FLG_OFF, C_FLG_ON].includes(g_stateObj[`d_${_name.toLowerCase()}`]) ?
 				g_lblNameObj[`d_${toCapitalize(_name)}`] : getStgDetailName(lbls[g_settings.displayNum[_name]]);
 
-			const withShortCutDesc = _ => createScText(document.getElementById(linkId), `${toCapitalize(_name)}`,
+			const withShortCutDesc = () => createScText(document.getElementById(linkId), `${toCapitalize(_name)}`,
 				{ displayName: g_currentPage, targetLabel: linkId, x: -5 });
 
 			/**
@@ -6236,10 +6533,10 @@ const createSettingsDisplayWindow = _sprite => {
 			// Displayボタン初期化
 			g_settings.displayNum[_name] = list.findIndex(flg => flg === g_stateObj[`d_${_name.toLowerCase()}`]);
 			displaySprite.appendChild(
-				makeSettingLblCssButton(linkId, dispView(), _heightPos, _ => switchDisplay(), {
+				makeSettingLblCssButton(linkId, dispView(), _heightPos, () => switchDisplay(), {
 					x: 30 + 180 * _widthPos, w: 170,
 					title: g_msgObj[`d_${_name.toLowerCase()}`], borderStyle: `solid`,
-					cxtFunc: _ => switchDisplay(-1),
+					cxtFunc: () => switchDisplay(-1),
 				}, `button_${cssBgList[g_settings.displayNum[_name]]}`, `button_${cssBarList[g_settings.displayNum[_name]]}`)
 			);
 			withShortCutDesc();
@@ -6247,7 +6544,7 @@ const createSettingsDisplayWindow = _sprite => {
 			// Display切替ボタン（ON/OFF以外用）
 			if (g_settings[`d_${_name}s`] !== undefined) {
 				displaySprite.appendChild(
-					makeSettingLblCssButton(`${linkId}R`, `>`, _heightPos, _ => switchDisplay(1, false), {
+					makeSettingLblCssButton(`${linkId}R`, `>`, _heightPos, () => switchDisplay(1, false), {
 						x: 175 + 180 * _widthPos, w: 25,
 					}, g_cssObj.button_Mini)
 				);
@@ -6276,7 +6573,7 @@ const createSettingsDisplayWindow = _sprite => {
 	// 矢印の見え方 (Appearance)
 	// 縦位置: 7.4
 	createGeneralSetting(spriteList.appearance, `appearance`, {
-		addRFunc: _ => dispAppearanceSlider(),
+		addRFunc: () => dispAppearanceSlider(),
 	});
 
 	// Hidden+/Sudden+初期値用スライダー、ロックボタン
@@ -6300,10 +6597,10 @@ const createSettingsDisplayWindow = _sprite => {
 	};
 
 	const appearanceSlider = document.getElementById(`appearanceSlider`);
-	appearanceSlider.addEventListener(`input`, _ =>
+	appearanceSlider.addEventListener(`input`, () =>
 		g_hidSudObj.filterPos = inputSliderAppearance(appearanceSlider, lblAppearancePos), false);
 
-	const dispAppearanceSlider = _ => {
+	const dispAppearanceSlider = () => {
 		[`lblAppearanceBar`, `lnkLockBtn`, `lnkfilterLine`].forEach(obj =>
 			$id(obj).visibility = g_appearanceRanges.includes(g_stateObj.appearance) ? `Visible` : `Hidden`);
 		inputSliderAppearance(appearanceSlider, lblAppearancePos);
@@ -6375,6 +6672,7 @@ const interlockingButton = (_headerObj, _name, _current, _next, _buttonFlg = fal
 
 /**
  * キーコンフィグ画面初期化
+ * @param {string} _kcType
  */
 const keyConfigInit = (_kcType = g_kcType) => {
 
@@ -6431,7 +6729,9 @@ const keyConfigInit = (_kcType = g_kcType) => {
 
 	/**
 	 * キーコンフィグ用の矢印色を取得
-	 * @param {number} _colorPos 
+	 * @param {number} _j
+	 * @param {number} _colorPos
+	 * @returns {string} 
 	 */
 	const getKeyConfigColor = (_j, _colorPos) => {
 		let arrowColor = g_headerObj.setColor[_colorPos];
@@ -6459,6 +6759,7 @@ const keyConfigInit = (_kcType = g_kcType) => {
 	 * @param {number} _len 
 	 * @param {number} _j 
 	 * @param {number} _scrollNum 
+	 * @returns {number}
 	 */
 	const changeTmpData = (_type, _len, _j, _scrollNum) => {
 		const tmpNo = nextPos(g_keyObj[`${_type}${keyCtrlPtn}_${g_keycons[`${_type}GroupNum`]}`][_j], _scrollNum, _len);
@@ -6507,9 +6808,9 @@ const keyConfigInit = (_kcType = g_kcType) => {
 		const arrowColor = getKeyConfigColor(j, colorPos);
 
 		keyconSprite.appendChild(
-			createCss2Button(`color${j}`, ``, _ => changeTmpColor(j), {
+			createCss2Button(`color${j}`, ``, () => changeTmpColor(j), {
 				x: keyconX, y: keyconY, w: C_ARW_WIDTH, h: C_ARW_WIDTH,
-				cxtFunc: _ => changeTmpColor(j, -1),
+				cxtFunc: () => changeTmpColor(j, -1),
 			}, g_cssObj.button_Default_NoColor, g_cssObj.title_base)
 		);
 		// キーコンフィグ表示用の矢印・おにぎりを表示
@@ -6526,10 +6827,10 @@ const keyConfigInit = (_kcType = g_kcType) => {
 		);
 		if (g_headerObj.shuffleUse && g_keyObj[`shuffle${keyCtrlPtn}`] !== undefined) {
 			keyconSprite.appendChild(
-				createCss2Button(`sArrow${j}`, ``, _ => changeTmpShuffleNum(j), {
+				createCss2Button(`sArrow${j}`, ``, () => changeTmpShuffleNum(j), {
 					x: keyconX, y: keyconY - 12, w: C_ARW_WIDTH, h: 15, siz: 12, fontWeight: `bold`,
 					pointerEvents: (g_settings.shuffles.filter(val => val.endsWith(`+`)).length > 0 ? `auto` : `none`),
-					cxtFunc: _ => changeTmpShuffleNum(j, -1),
+					cxtFunc: () => changeTmpShuffleNum(j, -1),
 				}, g_cssObj.button_Default_NoColor, g_cssObj.title_base)
 			);
 		}
@@ -6540,7 +6841,7 @@ const keyConfigInit = (_kcType = g_kcType) => {
 			g_keyObj[`keyCtrl${keyCtrlPtn}d`][j][k] = setIntVal(g_keyObj[`keyCtrl${keyCtrlPtn}d`][j][k]);
 
 			keyconSprite.appendChild(
-				createCss2Button(`keycon${j}_${k}`, g_kCd[g_keyObj[`keyCtrl${keyCtrlPtn}`][j][k]], _ => {
+				createCss2Button(`keycon${j}_${k}`, g_kCd[g_keyObj[`keyCtrl${keyCtrlPtn}`][j][k]], () => {
 					g_currentj = j;
 					g_currentk = k;
 					g_prevKey = -1;
@@ -6608,6 +6909,11 @@ const keyConfigInit = (_kcType = g_kcType) => {
 			}
 		}
 	};
+	/**
+	 * カラー・シャッフルグループ設定
+	 * @param {string} _type 
+	 * @param {number} [_scrollNum=1] 
+	 */
 	const setGroup = (_type, _scrollNum = 1) => {
 		g_keycons[`${_type}GroupNum`] = g_keycons[`${_type}Groups`][getNextNum(_scrollNum, `${_type}Groups`, g_keycons[`${_type}GroupNum`])];
 		g_keyObj[`${_type}${keyCtrlPtn}`] = structuredClone(g_keyObj[`${_type}${keyCtrlPtn}_${g_keycons[`${_type}GroupNum`]}`]);
@@ -6621,9 +6927,15 @@ const keyConfigInit = (_kcType = g_kcType) => {
 	 * キーコンフィグ用設定ラベル
 	 * @param {string} _id 
 	 * @param {string} _name 
-	 * @param {object} object (x, y, w, h, siz, align, ...rest) 
-	 * @param  {...any} _classes 
-	 * @returns ラベル
+	 * @param {number} [object.x=g_btnX(5 / 6)]
+	 * @param {number} [object.y=0]
+	 * @param {number} [object.w=g_btnWidth(1 / 6)]
+	 * @param {number} [object.h=20]
+	 * @param {number} [object.siz=12]
+	 * @param {string} [object.align='left']
+	 * @param {...any} [object.rest]
+	 * @param {...any} _classes 
+	 * @returns {HTMLDivElement}
 	 */
 	const makeKCButtonHeader = (_id, _name, {
 		x = g_btnX(5 / 6) - 30, y = 0, w = g_btnWidth(1 / 6), h = 20, siz = 12, align = C_ALIGN_LEFT, ...rest
@@ -6634,10 +6946,17 @@ const keyConfigInit = (_kcType = g_kcType) => {
 	 * @param {string} _id 
 	 * @param {string} _text 
 	 * @param {function} _func 
-	 * @param {object} object (x, y, w, h, siz, borderStyle, cxtFunc, ...rest)
-	 * @param {string} _mainClass 
+	 * @param {number} [object.x=g_btnX(5 / 6) - 20]
+	 * @param {number} [object.y=15]
+	 * @param {number} [object.w=g_btnWidth(1 / 6)]
+	 * @param {number} [object.h=18]
+	 * @param {number} [object.siz=g_limitObj.jdgCntsSiz]
+	 * @param {string} [object.borderStyle='solid']
+	 * @param {function} [object.cxtFunc]
+	 * @param {...any} [object.rest]
+	 * @param {string} [_mainClass=g_cssObj.button_RevOFF] 
 	 * @param  {...any} _classes 
-	 * @returns ボタン
+	 * @returns {HTMLDivElement}
 	 */
 	const makeKCButton = (_id, _text, _func, { x = g_btnX(5 / 6) - 20, y = 15, w = g_btnWidth(1 / 6), h = 18,
 		siz = g_limitObj.jdgCntsSiz, borderStyle = `solid`, cxtFunc, ...rest } = {}, _mainClass = g_cssObj.button_RevOFF, ..._classes) =>
@@ -6648,7 +6967,11 @@ const keyConfigInit = (_kcType = g_kcType) => {
 	 * @param {string} _id 
 	 * @param {string} _directionFlg 
 	 * @param {function} _func 
-	 * @param {*} object (x, y, w, h, siz) 
+	 * @param {number} [object.x=g_btnX(5 / 6) - 30]
+	 * @param {number} [object.y=15]
+	 * @param {number} [object.w=15]
+	 * @param {number} [object.h=20]
+	 * @param {number} [object.siz=g_limitObj.mainSiz]
 	 */
 	const makeMiniKCButton = (_id, _directionFlg, _func, { x = g_btnX(5 / 6) - 30, y = 15, w = 15, h = 20, siz = g_limitObj.mainSiz } = {}) =>
 		createCss2Button(`${_id}${_directionFlg}`, g_settingBtnObj.chara[_directionFlg], _func, { x, y, w, h, siz }, g_cssObj.button_Mini);
@@ -6656,18 +6979,20 @@ const keyConfigInit = (_kcType = g_kcType) => {
 	/**
 	 * キーコンフィグ用グループ設定ラベル・ボタンの作成
 	 * @param {string} _type 
-	 * @param {object} obj (baseX) 
+	 * @param {number} [object.baseX=g_btnX(5 / 6) - 20]
+	 * @param {number} [object.baseY=0]
+	 * @param {string} [object.cssName]
 	 */
 	const makeGroupButton = (_type, { baseX = g_btnX(5 / 6) - 20, baseY = 0, cssName } = {}) => {
 		if (g_headerObj[`${_type}Use`] && g_keycons[`${_type}Groups`].length > 1) {
 			const typeName = toCapitalize(_type);
 			multiAppend(divRoot,
 				makeKCButtonHeader(`lbl${_type}Group`, `${typeName}Group`, { x: baseX - 10, y: baseY }, cssName),
-				makeKCButton(`lnk${typeName}Group`, ``, _ => setGroup(_type), {
-					x: baseX, y: baseY + 13, w: g_btnWidth(1 / 18), title: g_msgObj[`${_type}Group`], cxtFunc: _ => setGroup(_type, -1),
+				makeKCButton(`lnk${typeName}Group`, ``, () => setGroup(_type), {
+					x: baseX, y: baseY + 13, w: g_btnWidth(1 / 18), title: g_msgObj[`${_type}Group`], cxtFunc: () => setGroup(_type, -1),
 				}),
-				makeMiniKCButton(`lnk${typeName}Group`, `L`, _ => setGroup(_type, -1), { x: baseX - 10, y: baseY + 13 }),
-				makeMiniKCButton(`lnk${typeName}Group`, `R`, _ => setGroup(_type), { x: baseX + g_btnWidth(1 / 18), y: baseY + 13 }),
+				makeMiniKCButton(`lnk${typeName}Group`, `L`, () => setGroup(_type, -1), { x: baseX - 10, y: baseY + 13 }),
+				makeMiniKCButton(`lnk${typeName}Group`, `R`, () => setGroup(_type), { x: baseX + g_btnWidth(1 / 18), y: baseY + 13 }),
 			);
 		} else {
 			g_keycons[`${_type}GroupNum`] = 0;
@@ -6691,11 +7016,11 @@ const keyConfigInit = (_kcType = g_kcType) => {
 
 		// キーカラータイプ切替ボタン
 		makeKCButtonHeader(`lblcolorType`, `ColorType`, { x: 10 + g_btnX() }, g_cssObj.keyconfig_ColorType),
-		makeKCButton(`lnkColorType`, g_colorType, _ => setColorType(), {
-			x: 20 + g_btnX(), title: g_msgObj.colorType, cxtFunc: _ => setColorType(-1),
+		makeKCButton(`lnkColorType`, g_colorType, () => setColorType(), {
+			x: 20 + g_btnX(), title: g_msgObj.colorType, cxtFunc: () => setColorType(-1),
 		}),
-		makeMiniKCButton(`lnkColorType`, `L`, _ => setColorType(-1), { x: 10 + g_btnX() }),
-		makeMiniKCButton(`lnkColorType`, `R`, _ => setColorType(), { x: 20 + g_btnX(1 / 6) }),
+		makeMiniKCButton(`lnkColorType`, `L`, () => setColorType(-1), { x: 10 + g_btnX() }),
+		makeMiniKCButton(`lnkColorType`, `R`, () => setColorType(), { x: 20 + g_btnX(1 / 6) }),
 	);
 
 	if (g_headerObj.imgType.length > 1) {
@@ -6703,11 +7028,11 @@ const keyConfigInit = (_kcType = g_kcType) => {
 		multiAppend(divRoot,
 			// オブジェクトタイプの切り替え（リロードあり）
 			makeKCButtonHeader(`lblImgType`, `ImgType`, { x: imgBaseX - 10, y: 37 }, g_cssObj.keyconfig_ConfigType),
-			makeKCButton(`lnkImgType`, g_imgType, _ => setImgType(), {
-				x: imgBaseX, y: imgBaseY, title: g_msgObj.imgType, cxtFunc: _ => setImgType(-1),
+			makeKCButton(`lnkImgType`, g_imgType, () => setImgType(), {
+				x: imgBaseX, y: imgBaseY, title: g_msgObj.imgType, cxtFunc: () => setImgType(-1),
 			}),
-			makeMiniKCButton(`lnkImgType`, `L`, _ => setImgType(-1), { x: imgBaseX - 10, y: imgBaseY }),
-			makeMiniKCButton(`lnkImgType`, `R`, _ => setImgType(), { x: imgBaseX + g_btnWidth(1 / 6), y: imgBaseY }),
+			makeMiniKCButton(`lnkImgType`, `L`, () => setImgType(-1), { x: imgBaseX - 10, y: imgBaseY }),
+			makeMiniKCButton(`lnkImgType`, `R`, () => setImgType(), { x: imgBaseX + g_btnWidth(1 / 6), y: imgBaseY }),
 		);
 	}
 
@@ -6719,7 +7044,7 @@ const keyConfigInit = (_kcType = g_kcType) => {
 	/**
 	 * カーソル位置の設定
 	 */
-	const setKeyConfigCursor = _ => {
+	const setKeyConfigCursor = () => {
 		const posj = g_keyObj[`pos${keyCtrlPtn}`][g_currentj];
 		const stdPos = posj - ((posj > divideCnt ? posMax : 0) + divideCnt) / 2;
 
@@ -6734,7 +7059,7 @@ const keyConfigInit = (_kcType = g_kcType) => {
 
 	/**
 	 * カーソル位置の変更
-	 * @param {number} _nextj 
+	 * @param {number} [_nextj] 次のカーソル位置
 	 */
 	const changeConfigCursor = (_nextj = ++g_keycons.cursorNum % g_keycons.cursorNumList.length) => {
 		g_keycons.cursorNum = _nextj;
@@ -6757,10 +7082,16 @@ const keyConfigInit = (_kcType = g_kcType) => {
 				}
 			}
 		}
-
 		setKeyConfigCursor();
 	};
 
+	/**
+	 * 次のカーソル位置の取得
+	 * @param {number} _scrollNum 
+	 * @param {string} _groupName 
+	 * @param {string} _target 
+	 * @returns {number}
+	 */
 	const getNextNum = (_scrollNum, _groupName, _target) =>
 		nextPos(g_keycons[_groupName].findIndex(value => value === _target), _scrollNum, g_keycons[_groupName].length);
 
@@ -6842,7 +7173,7 @@ const keyConfigInit = (_kcType = g_kcType) => {
 	/**
 	 * ColorPicker（一式）の切替
 	 */
-	const changeColorPickers = _ => {
+	const changeColorPickers = () => {
 		lnkColorR.innerHTML = `[${g_keycons.colorCursorNum + 1} /`;
 		for (let j = 0; j < g_limitObj.kcColorPickerNum; j++) {
 			const m = getGroupNum(j);
@@ -6855,7 +7186,8 @@ const keyConfigInit = (_kcType = g_kcType) => {
 
 	/**
 	 * ColorTypeの制御
-	 * @param {number} _scrollNum 
+	 * @param {number} [_scrollNum=1] 
+	 * @param {boolean} [_reloadFlg=true]
 	 */
 	const setColorType = (_scrollNum = 1, _reloadFlg = true) => {
 		const nextNum = getNextNum(_scrollNum, `colorTypes`, g_colorType);
@@ -6873,6 +7205,10 @@ const keyConfigInit = (_kcType = g_kcType) => {
 		}
 	};
 
+	/**
+	 * ImgTypeの制御
+	 * @param {number} [_scrollNum=1] 
+	 */
 	const setImgType = (_scrollNum = 1) => {
 		const nextNum = getNextNum(_scrollNum, `imgTypes`, g_imgType);
 		g_imgType = g_keycons.imgTypes[nextNum];
@@ -6890,13 +7226,13 @@ const keyConfigInit = (_kcType = g_kcType) => {
 	multiAppend(colorPickSprite,
 
 		// ColorPickerの切替
-		createCss2Button(`lnkColorR`, `[${g_keycons.colorCursorNum + 1} /`, _ => {
+		createCss2Button(`lnkColorR`, `[${g_keycons.colorCursorNum + 1} /`, () => {
 			g_keycons.colorCursorNum = (g_keycons.colorCursorNum + 1) % Math.ceil(g_headerObj.setColor.length / g_limitObj.kcColorPickerNum);
 			changeColorPickers();
 		}, g_lblPosObj.lnkColorR, g_cssObj.button_Start),
 
 		// 矢印の配色をフリーズアローへ反映
-		createCss2Button(`lnkColorCopy`, `↓]`, _ => {
+		createCss2Button(`lnkColorCopy`, `↓]`, () => {
 			if (window.confirm(g_msgObj.colorCopyConfirm)) {
 				for (let j = 0; j < g_headerObj.setColor.length; j++) {
 					g_headerObj.frzColor[j] = g_headerObj[`frzColor${g_colorType}`][j] =
@@ -6914,7 +7250,7 @@ const keyConfigInit = (_kcType = g_kcType) => {
 		createDivCss2Label(`lblPickFrz`, g_lblNameObj.s_frz, Object.assign({ y: 140 }, g_lblPosObj.pickPos)),
 
 		// ColorPickerの色を元に戻す
-		createCss2Button(`lnkColorReset`, g_lblNameObj.b_cReset, _ => {
+		createCss2Button(`lnkColorReset`, g_lblNameObj.b_cReset, () => {
 			if (window.confirm(g_msgObj.colorResetConfirm)) {
 				resetColorType({ _from: g_colorType, _to: ``, _fromObj: g_dfColorObj });
 				resetColorType({ _from: g_colorType, _to: g_colorType, _fromObj: g_dfColorObj });
@@ -6938,24 +7274,25 @@ const keyConfigInit = (_kcType = g_kcType) => {
 	 * @param {number} _j 
 	 * @param {string} _type 
 	 * @param {function} _func 
-	 * @param {object} _obj 
+	 * @param {number} [object.x=0]
+	 * @param {number} [object.y=15] 
 	 */
 	const createColorPickWindow = (_j, _type, _func, { x = 0, y = 15 } = {}) =>
 		createColorPicker(colorPickSprite, `pick${_type}${_j}`, _func, { x, y: y + 25 * _j });
 
 	for (let j = 0; j < g_limitObj.kcColorPickerNum; j++) {
-		createColorPickWindow(j, `arrow`, _ => {
+		createColorPickWindow(j, `arrow`, () => {
 			g_headerObj[`setColor${g_colorType}`][getGroupNum(j)] = document.getElementById(`pickarrow${j}`).value;
 			setColorType(0, false);
 		});
 
-		createColorPickWindow(j, `arrowShadow`, _ => {
+		createColorPickWindow(j, `arrowShadow`, () => {
 			g_headerObj[`setShadowColor${g_colorType}`][getGroupNum(j)] = `${document.getElementById(`pickarrowShadow${j}`).value}80`;
 			setColorType(0, false);
 		}, { x: 25 });
 
 		[``, `Bar`].forEach((val, k) =>
-			createColorPickWindow(j, `frz${val}`, _ => {
+			createColorPickWindow(j, `frz${val}`, () => {
 				g_headerObj[`frzColor${g_colorType}`][getGroupNum(j)][k] = document.getElementById(`pickfrz${val}${j}`).value;
 			}, { x: 25 * k, y: 155 }));
 	}
@@ -6972,13 +7309,14 @@ const keyConfigInit = (_kcType = g_kcType) => {
 	 * キーパターン検索
 	 * @param {number} _tempPtn 
 	 * @param {number} _sign 
-	 * @param {boolean} _transKeyUse 
+	 * @param {boolean} [_transKeyUse=false] 
+	 * @param {boolean} [_skipFlg=false]
 	 */
 	const searchPattern = (_tempPtn, _sign, _transKeyUse = false, _skipFlg = false) => {
 		let nextPtn = _tempPtn + _sign;
 		const initialPtn = hasVal(g_keyObj[`keyCtrl${g_keyObj.currentKey}_-1`]) ? -1 : 0;
 
-		const searchStart = _ => {
+		const searchStart = () => {
 			if (!hasVal(g_keyObj[`keyCtrl${g_keyObj.currentKey}_${nextPtn}`])) {
 				nextPtn = 0;
 				while (hasVal(g_keyObj[`keyCtrl${g_keyObj.currentKey}_${nextPtn}`])) {
@@ -6988,7 +7326,7 @@ const keyConfigInit = (_kcType = g_kcType) => {
 			}
 		};
 
-		const searchNextGroup = _ => {
+		const searchNextGroup = () => {
 			while (nextPtn !== initialPtn &&
 				g_keyObj[`transKey${g_keyObj.currentKey}_${_tempPtn}`] === g_keyObj[`transKey${g_keyObj.currentKey}_${nextPtn}`] &&
 				hasVal(g_keyObj[`keyCtrl${g_keyObj.currentKey}_${nextPtn}`])) {
@@ -7012,8 +7350,8 @@ const keyConfigInit = (_kcType = g_kcType) => {
 
 	/**
 	 * キーパターン変更時処理
-	 * @param {number} _sign 
-	 * @param {boolean} _skipFlg
+	 * @param {number} [_sign=1] 
+	 * @param {boolean} [_skipFlg=false]
 	 */
 	const changePattern = (_sign = 1, _skipFlg = false) => {
 
@@ -7042,7 +7380,7 @@ const keyConfigInit = (_kcType = g_kcType) => {
 			createDivCss2Label(`lblkey`, `KeySwitch`, g_lblPosObj.lblkey));
 		configKeyGroupList.forEach((val, j) =>
 			divRoot.appendChild(
-				createCss2Button(`key${j}`, `${j + 1}`, _ => appearConfigSteps(j),
+				createCss2Button(`key${j}`, `${j + 1}`, () => appearConfigSteps(j),
 					Object.assign({ y: 110 + j * 20 }, g_lblPosObj.lnkKeySwitch), g_cssObj.button_Mini),
 			));
 	}
@@ -7054,39 +7392,39 @@ const keyConfigInit = (_kcType = g_kcType) => {
 	multiAppend(divRoot,
 
 		// 設定画面へ戻る
-		createCss2Button(`btnBack`, g_lblNameObj.b_settings, _ => {
+		createCss2Button(`btnBack`, g_lblNameObj.b_settings, () => {
 			g_currentj = 0;
 			g_currentk = 0;
 			g_prevKey = 0;
 		}, Object.assign(g_lblPosObj.btnKcBack, {
-			resetFunc: _ => (g_baseDisp === `Settings` ? optionInit() : settingsDisplayInit()),
+			resetFunc: () => (g_baseDisp === `Settings` ? optionInit() : settingsDisplayInit()),
 		}), g_cssObj.button_Back),
 
 		createDivCss2Label(`lblPattern`, `${g_lblNameObj.KeyPattern}: ${g_keyObj.currentPtn === -1 ?
 			'Self' : g_keyObj.currentPtn + 1}${lblTransKey}`, g_lblPosObj.lblPattern),
 
 		// パターン変更ボタン描画(右回り)
-		createCss2Button(`btnPtnChangeR`, `>`, _ => true, Object.assign(g_lblPosObj.btnPtnChangeR, {
-			resetFunc: _ => changePattern(),
+		createCss2Button(`btnPtnChangeR`, `>`, () => true, Object.assign(g_lblPosObj.btnPtnChangeR, {
+			resetFunc: () => changePattern(),
 		}), g_cssObj.button_Mini),
 
 		// パターン変更ボタン描画(左回り)
-		createCss2Button(`btnPtnChangeL`, `<`, _ => true, Object.assign(g_lblPosObj.btnPtnChangeL, {
-			resetFunc: _ => changePattern(-1),
+		createCss2Button(`btnPtnChangeL`, `<`, () => true, Object.assign(g_lblPosObj.btnPtnChangeL, {
+			resetFunc: () => changePattern(-1),
 		}), g_cssObj.button_Mini),
 
 		// パターン変更ボタン描画(右回り/別キーモード間スキップ)
-		createCss2Button(`btnPtnChangeRR`, `|>`, _ => true, Object.assign(g_lblPosObj.btnPtnChangeRR, {
-			resetFunc: _ => changePattern(1, true),
+		createCss2Button(`btnPtnChangeRR`, `|>`, () => true, Object.assign(g_lblPosObj.btnPtnChangeRR, {
+			resetFunc: () => changePattern(1, true),
 		}), g_cssObj.button_Setting),
 
 		// パターン変更ボタン描画(左回り/別キーモード間スキップ)
-		createCss2Button(`btnPtnChangeLL`, `<|`, _ => true, Object.assign(g_lblPosObj.btnPtnChangeLL, {
-			resetFunc: _ => changePattern(-1, true),
+		createCss2Button(`btnPtnChangeLL`, `<|`, () => true, Object.assign(g_lblPosObj.btnPtnChangeLL, {
+			resetFunc: () => changePattern(-1, true),
 		}), g_cssObj.button_Setting),
 
 		// キーコンフィグリセットボタン描画
-		createCss2Button(`btnReset`, g_lblNameObj.b_reset, _ => {
+		createCss2Button(`btnReset`, g_lblNameObj.b_reset, () => {
 			if (window.confirm(g_msgObj.keyResetConfirm)) {
 				const keyCtrlPtn = `${g_keyObj.currentKey}_${g_keyObj.currentPtn}`;
 
@@ -7103,7 +7441,7 @@ const keyConfigInit = (_kcType = g_kcType) => {
 		}, g_lblPosObj.btnKcReset, g_cssObj.button_Reset),
 
 		// プレイ開始
-		makePlayButton(_ => loadMusic())
+		makePlayButton(() => loadMusic())
 	);
 
 	// キーボード押下時処理
@@ -7155,21 +7493,26 @@ const keyConfigInit = (_kcType = g_kcType) => {
 
 	g_skinJsObj.keyconfig.forEach(func => func());
 	document.onkeyup = evt => commonKeyUp(evt);
-	document.oncontextmenu = _ => false;
+	document.oncontextmenu = () => false;
 };
 
 /**
  * 影矢印色の取得
  * @param {number} _colorPos 
  * @param {string} _arrowColor 
+ * @returns {string}
  */
 const getShadowColor = (_colorPos, _arrowColor) => g_headerObj.setShadowColor[_colorPos] === `Default` ?
 	_arrowColor : g_headerObj.setShadowColor[_colorPos];
 
 /**
  * キー数基礎情報の取得
+ * @returns {{ 
+ * 	keyCtrlPtn: string, keyNum: number, posMax: number,
+ * 	divideCnt: number, keyGroupMaps: string[], keyGroupList: string[] 
+ * }}
  */
-const getKeyInfo = _ => {
+const getKeyInfo = () => {
 	const keyCtrlPtn = `${g_keyObj.currentKey}_${g_keyObj.currentPtn}`;
 	const keyNum = g_keyObj[`${g_keyObj.defaultProp}${keyCtrlPtn}`].length;
 	const posMax = g_keyObj[`divMax${keyCtrlPtn}`] ?? Math.max(...g_keyObj[`pos${keyCtrlPtn}`]) + 1;
@@ -7195,7 +7538,7 @@ const updateKeyInfo = (_header, _keyCtrlPtn) => {
 /**
  * 初期矢印色・フリーズアロー色の変更
  */
-const changeSetColor = _ => {
+const changeSetColor = () => {
 	const isDefault = [`Default`, `Type0`].includes(g_colorType);
 	const idHeader = setScoreIdHeader(g_stateObj.scoreId);
 	const defaultType = idHeader + g_colorType;
@@ -7224,7 +7567,7 @@ const changeSetColor = _ => {
 
 /**
  * コンフィグの色変更
- * @param {object} _obj 
+ * @param {HTMLDivElement} _obj 
  * @param {string} _cssName 
  */
 const changeConfigColor = (_obj, _cssName) => {
@@ -7236,7 +7579,7 @@ const changeConfigColor = (_obj, _cssName) => {
  * シャッフルグループの色変更
  * - デフォルト値と違う番号になった場合、色付けする
  * @param {string} _keyCtrlPtn キーコンフィグパターン
- * @param {array} _vals シャッフルグループ番号（群）
+ * @param {number[]} _vals シャッフルグループ番号（群）
  * @param {number} _j (-1: 全体に対して色付け, それ以外: 指定箇所のみ色付け)
  */
 const changeShuffleConfigColor = (_keyCtrlPtn, _vals, _j = -1) => {
@@ -7256,7 +7599,7 @@ const changeShuffleConfigColor = (_keyCtrlPtn, _vals, _j = -1) => {
 /* Scene : LOADING [strawberry] */
 /*-----------------------------------------------------------*/
 
-const loadMusic = _ => {
+const loadMusic = () => {
 
 	clearWindow(true);
 	g_currentPage = `loading`;
@@ -7288,7 +7631,7 @@ const loadMusic = _ => {
 	request.responseType = `blob`;
 
 	// 読み込み完了時
-	request.addEventListener(`load`, _ => {
+	request.addEventListener(`load`, () => {
 		if (request.status >= 200 && request.status < 300) {
 			const blobUrl = URL.createObjectURL(request.response);
 			createEmptySprite(divRoot, `loader`, g_windowObj.loader);
@@ -7315,8 +7658,8 @@ const loadMusic = _ => {
 	});
 
 	// エラー処理
-	request.addEventListener(`timeout`, _ => makeWarningWindow(g_msgInfoObj.E_0033, { backBtnUse: true }));
-	request.addEventListener(`error`, _ => makeWarningWindow(g_msgInfoObj.E_0034, { backBtnUse: true }));
+	request.addEventListener(`timeout`, () => makeWarningWindow(g_msgInfoObj.E_0033, { backBtnUse: true }));
+	request.addEventListener(`error`, () => makeWarningWindow(g_msgInfoObj.E_0034, { backBtnUse: true }));
 
 	request.send();
 };
@@ -7328,7 +7671,7 @@ const loadMusic = _ => {
  */
 const setAudio = async (_url) => {
 
-	const loadMp3 = _ => {
+	const loadMp3 = () => {
 		if (g_isFile) {
 			g_audio.src = _url;
 			musicAfterLoaded();
@@ -7357,13 +7700,13 @@ const setAudio = async (_url) => {
 		await loadScript2(_url);
 		if (typeof musicInit === C_TYP_FUNCTION) {
 			musicInit();
-			readyToStart(_ => initWebAudioAPIfromBase64(g_musicdata));
+			readyToStart(() => initWebAudioAPIfromBase64(g_musicdata));
 		} else {
 			makeWarningWindow(g_msgInfoObj.E_0031);
 			musicAfterLoaded();
 		}
 	} else {
-		readyToStart(_ => loadMp3());
+		readyToStart(() => loadMp3());
 	}
 };
 
@@ -7384,7 +7727,7 @@ const initWebAudioAPIfromURL = async (_url) => {
 	await g_audio.init(arrayBuffer);
 };
 
-const musicAfterLoaded = _ => {
+const musicAfterLoaded = () => {
 	g_audio.load();
 
 	if (g_audio.readyState === 4) {
@@ -7392,13 +7735,13 @@ const musicAfterLoaded = _ => {
 		loadingScoreInit();
 	} else {
 		// 読込中の状態
-		g_audio.addEventListener(`canplaythrough`, (_ => function f() {
+		g_audio.addEventListener(`canplaythrough`, (() => function f() {
 			g_audio.removeEventListener(`canplaythrough`, f, false);
 			loadingScoreInit();
 		})(), false);
 
 		// エラー時
-		g_audio.addEventListener(`error`, (_ => function f() {
+		g_audio.addEventListener(`error`, (() => function f() {
 			g_audio.removeEventListener(`error`, f, false);
 			makeWarningWindow(g_msgInfoObj.E_0041.split(`{0}`).join(g_audio.src), { backBtnUse: true });
 		})(), false);
@@ -7549,7 +7892,7 @@ const loadingScoreInit = async () => {
  * 譜面番号の取得
  * @param {number} _scoreId 
  * @param {boolean} _scoreLockFlg 
- * @returns 
+ * @returns {number|string}
  */
 const setScoreIdHeader = (_scoreId = 0, _scoreLockFlg = false) => {
 	if (!_scoreLockFlg && _scoreId > 0) {
@@ -7562,9 +7905,9 @@ const setScoreIdHeader = (_scoreId = 0, _scoreLockFlg = false) => {
 
 /**
  * 譜面ファイル番号の取得
- * @param {number} _scoreId 
- * @param {boolean} _scoreLockFlg 
- * @returns 
+ * @param {number} [_scoreId=0] 
+ * @param {boolean} [_scoreLockFlg=false] 
+ * @returns {number|string}
  */
 const setDosIdHeader = (_scoreId = 0, _scoreLockFlg = false) => {
 	if (_scoreLockFlg && g_headerObj.dosNos?.[_scoreId] > 0) {
@@ -7578,8 +7921,8 @@ const setDosIdHeader = (_scoreId = 0, _scoreLockFlg = false) => {
 /**
  * Mirror,Randomの適用
  * @param {number} _keyNum
- * @param {array} _shuffleGroup
- * @param {array} _style
+ * @param {number[][]} _shuffleGroup
+ * @param {number[][]} _style
  */
 const applyShuffle = (_keyNum, _shuffleGroup, _style) => {
 	// 並べ替え用の配列を作成
@@ -7603,7 +7946,8 @@ const applyShuffle = (_keyNum, _shuffleGroup, _style) => {
 /**
  * Mirrorの適用
  * @param {number} _keyNum
- * @param {array} _shuffleGroup
+ * @param {number[][]} _shuffleGroup
+ * @param {boolean} [_swapFlg=false]
  */
 const applyMirror = (_keyNum, _shuffleGroup, _swapFlg = false) => {
 
@@ -7636,7 +7980,7 @@ const applyMirror = (_keyNum, _shuffleGroup, _swapFlg = false) => {
 /**
  * Turningの適用
  * @param {number} _keyNum 
- * @param {array} _shuffleGroup 
+ * @param {number[][]} _shuffleGroup 
  */
 const applyTurning = (_keyNum, _shuffleGroup) => {
 	const mirrorOrNot = _array => Math.random() >= 0.5 ? _array.reverse() : _array;
@@ -7650,7 +7994,7 @@ const applyTurning = (_keyNum, _shuffleGroup) => {
 /**
  * Randomの適用
  * @param {number} _keyNum
- * @param {array} _shuffleGroup
+ * @param {number[][]} _shuffleGroup
  */
 const applyRandom = (_keyNum, _shuffleGroup) => {
 	// シャッフルグループごとにシャッフル(Fisher-Yates)
@@ -7667,12 +8011,14 @@ const applyRandom = (_keyNum, _shuffleGroup) => {
 /**
  * S-Randomの適用
  * @param {number} _keyNum
- * @param {array} _shuffleGroup
+ * @param {number[][]} _shuffleGroup
+ * @param {string} _arrowHeader
+ * @param {string} _frzHeader
  */
 const applySRandom = (_keyNum, _shuffleGroup, _arrowHeader, _frzHeader) => {
 
-	const tmpArrowData = [...Array(_keyNum)].map(_ => []);
-	const tmpFrzData = [...Array(_keyNum)].map(_ => []);
+	const tmpArrowData = [...Array(_keyNum)].map(() => []);
+	const tmpFrzData = [...Array(_keyNum)].map(() => []);
 	const scatterFrame = 10;
 
 	// シャッフルグループごとに処理
@@ -7708,40 +8054,36 @@ const applySRandom = (_keyNum, _shuffleGroup, _arrowHeader, _frzHeader) => {
 		// 通常矢印の配置
 		const allArrows = _group.map(_key => g_scoreObj[`${_arrowHeader}Data`][_key]).flat();
 		allArrows.sort((_a, _b) => _a - _b);
-		let prev2Num = 0, prevNum = 0;
+		let prev2Num = 0, prevNum = 0, sameFlg = true;
 		allArrows.forEach(_arrow => {
 
 			// 直前の矢印のフレーム数を取得
-			if (prev2Num !== _arrow) {
-				if (prevNum !== _arrow) {
-					prev2Num = prevNum;
-					prevNum = _arrow;
-				}
+			sameFlg = true;
+			if (prev2Num !== _arrow && prevNum !== _arrow) {
+				prev2Num = prevNum;
+				prevNum = _arrow;
+				sameFlg = false;
 			}
 
+			const getFreeSpaces = ({ scatterFrame = 0, frzFlg = false, prevFlg = false } = {}) =>
+				_group.filter(_key =>
+					// 通常矢印と重ならない
+					tmpArrowData[_key].find(_other => _arrow >= _other - scatterFrame && _arrow <= _other + scatterFrame) === undefined
+					// フリーズと重ならない
+					&& (!frzFlg || tmpFrzData[_key].find(_freeze => _arrow >= _freeze.begin - scatterFrame && _arrow <= _freeze.end + scatterFrame) === undefined)
+					// 直前の矢印と重ならない
+					&& (!prevFlg || tmpArrowData[_key].find(_other => prev2Num === _other) === undefined)
+				);
+
 			// 置ける場所を検索
-			const freeSpacesFlat = _group.filter(_key =>
-				// フリーズと重ならない (前後10フレーム)
-				tmpFrzData[_key].find(_freeze => _arrow >= _freeze.begin - scatterFrame && _arrow <= _freeze.end + scatterFrame) === undefined
-				// 通常矢印と重ならない (前後10フレーム)
-				&& tmpArrowData[_key].find(_other => _arrow >= _other - scatterFrame && _arrow <= _other + scatterFrame) === undefined
-				// 直前の矢印と重ならない
-				&& tmpArrowData[_key].find(_other => prev2Num === _other) === undefined
-			);
-			const freeSpaces = _group.filter(_key =>
-				// フリーズと重ならない
-				tmpFrzData[_key].find(_freeze => _arrow >= _freeze.begin && _arrow <= _freeze.end) === undefined
-				// 通常矢印と重ならない
-				&& tmpArrowData[_key].find(_other => _arrow === _other) === undefined
-			);
-			const freeSpacesAlt = _group.filter(_key =>
-				// 通常矢印と重ならない
-				tmpArrowData[_key].find(_other => _arrow === _other) === undefined
-			);
+			const freeSpacesFlat = getFreeSpaces({ scatterFrame, frzFlg: true, prevFlg: true });
+			const freeSpaces = getFreeSpaces({ frzFlg: true });
+			const freeSpacesAlt = getFreeSpaces();
+
 			// ランダムに配置
 			let currentFreeSpaces = freeSpaces.length > 0 ? freeSpaces : freeSpacesAlt;
 			if (g_stateObj.shuffle.startsWith(`Scatter`)) {
-				currentFreeSpaces = freeSpacesFlat.length > 0 ? freeSpacesFlat : currentFreeSpaces;
+				currentFreeSpaces = freeSpacesFlat.length > 0 && !sameFlg ? freeSpacesFlat : currentFreeSpaces;
 			}
 			const random = Math.floor(Math.random() * currentFreeSpaces.length);
 			tmpArrowData[currentFreeSpaces[random]].push(_arrow);
@@ -7759,9 +8101,10 @@ const applySRandom = (_keyNum, _shuffleGroup, _arrowHeader, _frzHeader) => {
  * @param {object} _dosObj 
  * @param {number} _scoreId 譜面番号
  * @param {number} _preblankFrame 補完フレーム数
- * @param {string} _dummyNo ダミー用譜面番号添え字
- * @param {string} _keyCtrlPtn 選択キー及びパターン
- * @param {boolean} _scoreAnalyzeFlg (default : false)
+ * @param {string} [_dummyNo] ダミー用譜面番号添え字
+ * @param {string} [_keyCtrlPtn] 選択キー及びパターン
+ * @param {boolean} [_scoreAnalyzeFlg=false] 譜面詳細データのために必要分で読込を中断
+ * @returns
  */
 const scoreConvert = (_dosObj, _scoreId, _preblankFrame, _dummyNo = ``,
 	_keyCtrlPtn = `${g_keyObj.currentKey}_${g_keyObj.currentPtn}`, _scoreAnalyzeFlg = false) => {
@@ -7789,6 +8132,7 @@ const scoreConvert = (_dosObj, _scoreId, _preblankFrame, _dummyNo = ``,
 	/**
 	 * 矢印データの格納
 	 * @param {string} _data 
+	 * @returns {number[]}
 	 */
 	const storeArrowData = _data => hasVal(_data) ?
 		splitLF(_data)?.join(``).split(`,`).filter(data => !isNaN(parseFloat(data))).map(data => calcFrame(data)).sort((_a, _b) => _a - _b) : [];
@@ -7822,6 +8166,7 @@ const scoreConvert = (_dosObj, _scoreId, _preblankFrame, _dummyNo = ``,
 	 * @param {string} _header 
 	 * @param {number} _scoreNo 
 	 * @param {string} _footer 
+	 * @returns {number[]}
 	 */
 	const setSpeedData = (_header, _scoreNo, _footer = `_data`) => {
 		const dosSpeedData = getRefData(_header, `${_scoreNo}${_footer}`);
@@ -7852,6 +8197,7 @@ const scoreConvert = (_dosObj, _scoreId, _preblankFrame, _dummyNo = ``,
 	/**
 	 * 個別・全体色変化データをマージして整列し、単純配列として返却
 	 * @param {string} _header 
+	 * @returns {any[]}
 	 */
 	const mergeColorData = (_header = ``) => {
 		if (obj[`color${_header}Data`] === undefined) return [];
@@ -7864,6 +8210,7 @@ const scoreConvert = (_dosObj, _scoreId, _preblankFrame, _dummyNo = ``,
 	 * 後で個別・全体色変化をマージするため、二次元配列として返却
 	 * @param {string} _header 
 	 * @param {number} _scoreNo 
+	 * @returns {any[][]}
 	 */
 	const setColorData = (_header, _scoreNo) => {
 		const dosColorData = getRefData(_header, `${_scoreNo}_data`);
@@ -7922,27 +8269,19 @@ const scoreConvert = (_dosObj, _scoreId, _preblankFrame, _dummyNo = ``,
 				const pos = tmpColorData[1]?.indexOf(`:`);
 				const patternStr = pos > 0 ? [trimStr(tmpColorData[1].substring(0, pos)), trimStr(tmpColorData[1].substring(pos + 1))]
 					: [tmpColorData[1]];
-				const patterns = replaceStr(trimStr(patternStr[1]), g_escapeStr.colorPatternName)?.split(`/`) || [`Arrow`];
+				const patterns = replaceStr(trimStr(patternStr[1] || `Arrow`), g_escapeStr.colorPatternName).split(`/`);
 
 				// 矢印番号の組み立て
 				const colorVals = [];
 				replaceStr(patternStr[0], g_escapeStr.targetPatternName)?.split(`/`)?.forEach(val => {
-					if (val.startsWith('g')) {
-						// g付きの場合は矢印グループから対象の矢印番号を検索
-						const groupVal = setIntVal(val.slice(1));
-						for (let j = 0; j < keyNum; j++) {
-							if (g_keyObj[`color${_keyCtrlPtn}`][j] === groupVal) {
-								colorVals.push(j);
-							}
-						}
-					} else if (val.indexOf(`...`) > 0) {
-						// 範囲指定表記の補完　例. 0...3 -> 0/1/2/3
+					if (val.indexOf(`...`) > 0) {
+						// 範囲指定表記の補完 例. 0...3 -> 0/1/2/3
 						const [valMin, valMax] = [val.split(`...`)[0], val.split(`...`)[1]].map(val => setIntVal(val));
 						for (let k = valMin; k <= valMax; k++) {
-							colorVals.push(setIntVal(k));
+							colorVals.push(String(k));
 						}
 					} else {
-						colorVals.push(setIntVal(val));
+						colorVals.push(val);
 					}
 				});
 
@@ -7966,6 +8305,7 @@ const scoreConvert = (_dosObj, _scoreId, _preblankFrame, _dummyNo = ``,
 	 * 矢印モーションデータの分解・格納（フレーム数, 矢印番号）
 	 * @param {string} _header 
 	 * @param {number} _scoreNo 
+	 * @returns {any[]}
 	 */
 	const setCssMotionData = (_header, _scoreNo) => {
 		const dosCssMotionData = getRefData(`${_header}Motion`, `${_scoreNo}_data`) || _dosObj[`${_header}Motion_data`];
@@ -7992,6 +8332,7 @@ const scoreConvert = (_dosObj, _scoreId, _preblankFrame, _dummyNo = ``,
 	/**
 	 * スクロール変化データの分解
 	 * @param {number} _scoreNo 
+	 * @returns {number[]}
 	 */
 	const setScrollchData = (_scoreNo) => {
 		const dosScrollchData = getRefData(`scrollch`, `${_scoreNo}_data`) || _dosObj.scrollch_data;
@@ -8019,6 +8360,7 @@ const scoreConvert = (_dosObj, _scoreId, _preblankFrame, _dummyNo = ``,
 	 * 例) |backA2_data=back_data| -> back_dataで定義された値を使用
 	 * @param {string} _header 
 	 * @param {string} _dataName 
+	 * @returns
 	 */
 	const getRefData = (_header, _dataName) => {
 		const data = _dosObj[`${_header}${_dataName}`];
@@ -8032,6 +8374,7 @@ const scoreConvert = (_dosObj, _scoreId, _preblankFrame, _dummyNo = ``,
 	 * 譜面データの優先順配列パターンの取得
 	 * @param {string} _type 
 	 * @param {number} _scoreNo 
+	 * @returns {string[]}
 	 */
 	const getPriorityVal = (_type, _scoreNo) => [
 		`${_type}${g_localeObj.val}${_scoreNo}_data`,
@@ -8041,7 +8384,9 @@ const scoreConvert = (_dosObj, _scoreId, _preblankFrame, _dummyNo = ``,
 	];
 
 	/**
-	 * 歌詞表示、背景・マスクデータの優先順取得 
+	 * 歌詞表示、背景・マスクデータの優先順取得
+	 * @param {string[]} _defaultHeaders 
+	 * @returns {string[]}
 	 */
 	const getPriorityHeader = (_defaultHeaders = []) => {
 		if (_defaultHeaders.length > 0) {
@@ -8072,6 +8417,7 @@ const scoreConvert = (_dosObj, _scoreId, _preblankFrame, _dummyNo = ``,
 	/**
 	 * 歌詞データの分解
 	 * @param {string} _scoreNo 
+	 * @returns
 	 */
 	const makeWordData = _scoreNo => {
 		const wordDataList = [];
@@ -8111,6 +8457,7 @@ const scoreConvert = (_dosObj, _scoreId, _preblankFrame, _dummyNo = ``,
 	 * 多層歌詞データの格納処理
 	 * @param {object} _data 
 	 * @param {boolean} _reverseFlg
+	 * @returns
 	 */
 	const makeSpriteWordData = (_data, _reverseFlg = false) => {
 		const wordData = [];
@@ -8170,7 +8517,8 @@ const scoreConvert = (_dosObj, _scoreId, _preblankFrame, _dummyNo = ``,
 	 * 背景・マスク、スキン変更データの分解
 	 * @param {string} _header 
 	 * @param {string} _scoreNo 譜面番号
-	 * @param {array} resultTypes リザルトモーションの種類 (result, failedB, failedS)
+	 * @param {string[]} [object.resultTypes] リザルトモーションの種類 (result, failedB, failedS)
+	 * @returns
 	 */
 	const makeBackgroundData = (_header, _scoreNo, { resultTypes = [] } = {}) => {
 		const dataList = [];
@@ -8313,7 +8661,8 @@ const calcLifeVal = (_val, _allArrows) => Math.round(_val * g_headerObj.maxLifeV
 /**
  * 最終フレーム数の取得
  * @param {object} _dataObj 
- * @param {string} _keyCtrlPtn
+ * @param {string} [_keyCtrlPtn]
+ * @returns {number}
  */
 const getLastFrame = (_dataObj, _keyCtrlPtn = `${g_keyObj.currentKey}_${g_keyObj.currentPtn}`) => {
 
@@ -8340,7 +8689,8 @@ const getLastFrame = (_dataObj, _keyCtrlPtn = `${g_keyObj.currentKey}_${g_keyObj
 /**
  * 最初の矢印フレームの取得
  * @param {object} _dataObj 
- * @param {string} _keyCtrlPtn
+ * @param {string} [_keyCtrlPtn]
+ * @returns {number}
  */
 const getFirstArrowFrame = (_dataObj, _keyCtrlPtn = `${g_keyObj.currentKey}_${g_keyObj.currentPtn}`) => {
 
@@ -8367,8 +8717,9 @@ const getFirstArrowFrame = (_dataObj, _keyCtrlPtn = `${g_keyObj.currentKey}_${g_
 /**
  * 開始フレームの取得
  * @param {number} _lastFrame 
- * @param {number} _fadein
- * @param {number} _scoreId
+ * @param {number} [_fadein=0]
+ * @param {number} [_scoreId=g_scoreObj.scoreId]
+ * @returns {number}
  */
 const getStartFrame = (_lastFrame, _fadein = 0, _scoreId = g_stateObj.scoreId) => {
 	let frameNum = setIntVal(g_headerObj.startFrame?.[_scoreId], setIntVal(g_headerObj.startFrame?.[0], 0));
@@ -8382,6 +8733,7 @@ const getStartFrame = (_lastFrame, _fadein = 0, _scoreId = g_stateObj.scoreId) =
  * 各フレームごとの速度を格納
  * @param {object} _speedData 
  * @param {number} _lastFrame 
+ * @returns {number[]}
  */
 const setSpeedOnFrame = (_speedData, _lastFrame) => {
 
@@ -8402,14 +8754,15 @@ const setSpeedOnFrame = (_speedData, _lastFrame) => {
  * Motionオプション適用時の矢印別の速度設定
  * - 矢印が表示される最大フレーム数を 縦ピクセル数×20 と定義。
  */
-const setMotionOnFrame = _ => g_motionFunc[g_stateObj.motion](fillArray(g_headerObj.playingHeight * 20 + 1));
+const setMotionOnFrame = () => g_motionFunc[g_stateObj.motion](fillArray(g_headerObj.playingHeight * 20 + 1));
 
 /**
  * Boost用の適用関数
  * - ステップゾーンに近づくにつれて加速量を大きく/小さくする (16 → 85)
- * @param {array} _frms 
+ * @param {number[]} _frms 
  * @param {number} _spd 
- * @param {number} _pnFlg 正負(1 もしくは -1) 
+ * @param {number} [_pnFlg=1] 正負(1 もしくは -1) 
+ * @returns {number[]}
  */
 const getBoostTrace = (_frms, _spd, _pnFlg = 1) => {
 	for (let j = C_MOTION_STD_POS + 1; j < C_MOTION_STD_POS + 70; j++) {
@@ -8421,7 +8774,8 @@ const getBoostTrace = (_frms, _spd, _pnFlg = 1) => {
 /**
  * Brake用の適用関数
  * - 初期は+2x、ステップゾーンに近づくにつれて加速量を下げる (20 → 34)
- * @param {array} _frms 
+ * @param {number[]} _frms
+ * @returns {number[]} 
  */
 const getBrakeTrace = _frms => {
 	for (let j = C_MOTION_STD_POS + 5; j < C_MOTION_STD_POS + 19; j++) {
@@ -8434,10 +8788,31 @@ const getBrakeTrace = _frms => {
 };
 
 /**
+ * Fountain用の適用関数
+ * - 反対側から出現し、画面中央付近で折り返す。タイミングは初期速度により変化。
+ * @param {number[]} _frms 
+ * @param {number} _spd
+ * @returns {number[]}
+ */
+const getFountainTrace = (_frms, _spd) => {
+	const minj = C_MOTION_STD_POS + 1;
+	const maxj = C_MOTION_STD_POS + Math.ceil(400 / _spd) + 1;
+	const maxMotionFrm = Math.max(maxj, C_MOTION_STD_POS + g_sHeight / 2);
+	const diff = 50 / (maxj - minj);
+	const factor = 0.5 + _spd / 40;
+
+	for (let j = minj; j < maxMotionFrm; j++) {
+		_frms[j] = Math.floor((10 - (j - C_MOTION_STD_POS - 1) * diff) * factor);
+	}
+	return _frms;
+}
+
+/**
  * 最初のフレームで出現する矢印が、ステップゾーンに到達するまでのフレーム数を取得
  * @param {number} _startFrame 
  * @param {object} _speedOnFrame 
- * @param {object} _motionOnFrame 
+ * @param {object} _motionOnFrame
+ * @returns {number} 
  */
 const getFirstArrivalFrame = (_startFrame, _speedOnFrame, _motionOnFrame) => {
 	let startY = 0;
@@ -8472,6 +8847,19 @@ const pushArrows = (_dataObj, _speedOnFrame, _motionOnFrame, _firstArrivalFrame)
 	/** Motionの適用フレーム数 */
 	g_workObj.motionFrame = [];
 
+	/**
+	 * 矢印・フリーズアローのデータ格納処理
+	 * @param {number} _j 
+	 * @param {number} _k 
+	 * @param {number[]} _data 
+	 * @param {number} _startPoint 
+	 * @param {string} _header 
+	 * @param {boolean} _frzFlg 
+	 * @param {number} object.initY
+	 * @param {number} object.initBoostY
+	 * @param {number} object.arrivalFrame
+	 * @param {number} object.motionFrame 
+	 */
 	const setNotes = (_j, _k, _data, _startPoint, _header, _frzFlg = false, { initY, initBoostY, arrivalFrame, motionFrame } = {}) => {
 		if (_startPoint >= 0) {
 			const arrowAttrs = { pos: _j, initY, initBoostY, arrivalFrame, motionFrame };
@@ -8498,11 +8886,19 @@ const pushArrows = (_dataObj, _speedOnFrame, _motionOnFrame, _firstArrivalFrame)
 		}
 	};
 
+	/**
+	 * 矢印・フリーズアローの出現位置計算
+	 * @param {number} _j 
+	 * @param {number[]} _data 
+	 * @param {string} _header 
+	 * @param {boolean} _frzFlg 
+	 */
 	const calcNotes = (_j, _data, _header = ``, _frzFlg = false) => {
 		if (_data === undefined) {
 			return;
 		}
 
+		const calcInitBoostY = _frm => sumData(g_workObj.motionOnFrames.filter((val, j) => j <= g_workObj.motionFrame[_frm]));
 		const camelHeader = toCapitalize(_header);
 		const setcnt = (_frzFlg ? 2 : 1);
 		if (_frzFlg && _data.length % 2 !== 0) {
@@ -8524,7 +8920,7 @@ const pushArrows = (_dataObj, _speedOnFrame, _motionOnFrame, _firstArrivalFrame)
 		g_workObj.initY[frmPrev] = tmpObj.startY;
 		g_workObj.arrivalFrame[frmPrev] = tmpObj.arrivalFrm;
 		g_workObj.motionFrame[frmPrev] = tmpObj.motionFrm;
-		g_workObj.initBoostY[frmPrev] = sumData(g_workObj.motionOnFrames.filter((val, j) => j < g_workObj.motionFrame[frmPrev]));
+		g_workObj.initBoostY[frmPrev] = calcInitBoostY(frmPrev);
 
 		if (_frzFlg) {
 			g_workObj[`mk${camelHeader}Length`][_j] = [];
@@ -8553,7 +8949,7 @@ const pushArrows = (_dataObj, _speedOnFrame, _motionOnFrame, _firstArrivalFrame)
 				g_workObj.initY[tmpFrame] = g_workObj.initY[frmPrev];
 				g_workObj.arrivalFrame[tmpFrame] = g_workObj.arrivalFrame[frmPrev];
 				g_workObj.motionFrame[tmpFrame] = g_workObj.motionFrame[frmPrev];
-				g_workObj.initBoostY[tmpFrame] = sumData(g_workObj.motionOnFrames.filter((val, j) => j < g_workObj.motionFrame[frmPrev]));
+				g_workObj.initBoostY[tmpFrame] = calcInitBoostY(tmpFrame);
 
 			} else {
 
@@ -8570,7 +8966,7 @@ const pushArrows = (_dataObj, _speedOnFrame, _motionOnFrame, _firstArrivalFrame)
 				g_workObj.initY[frmPrev] = tmpObj.startY;
 				g_workObj.arrivalFrame[frmPrev] = tmpObj.arrivalFrm;
 				g_workObj.motionFrame[frmPrev] = tmpObj.motionFrm;
-				g_workObj.initBoostY[frmPrev] = sumData(g_workObj.motionOnFrames.filter((val, j) => j < g_workObj.motionFrame[frmPrev]));
+				g_workObj.initBoostY[frmPrev] = calcInitBoostY(frmPrev);
 			}
 
 			// 出現タイミングを保存
@@ -8619,10 +9015,13 @@ const pushArrows = (_dataObj, _speedOnFrame, _motionOnFrame, _firstArrivalFrame)
 	 * - この関数を使用する場合、配列グループの先頭2つが「フレーム数、矢印番号」となっていないと動作しない
 	 * @param {string} _type 
 	 * @param {string} _header 
-	 * @param {function} _setFunc 
-	 * @param {object} obj _colorFlg: 個別色変化フラグ, _calcFrameFlg: 逆算を無条件で行うかどうかの可否
+	 * @param {function} _setFunc 後続実行関数
+	 * @param {number} object._term 1セット当たりのデータ数 
+	 * @param {boolean} object._colorFlg 個別色変化フラグ
+	 * @param {boolean} object._calcFrameFlg 逆算を無条件で行うかどうかの可否
+	 * @param {string} object._propName 色変化種類 (Arrow, ArrowShadow, FrzNormal, FrzNormalBar, ...)
 	 */
-	const calcDataTiming = (_type, _header, _setFunc = _ => true,
+	const calcDataTiming = (_type, _header, _setFunc = () => true,
 		{ _term = 4, _colorFlg = false, _calcFrameFlg = false, _propName = `` } = {}) => {
 
 		const camelHeader = _header === `` ? _type : `${_header}${toCapitalize(_type)}`;
@@ -8661,6 +9060,7 @@ const pushArrows = (_dataObj, _speedOnFrame, _motionOnFrame, _firstArrivalFrame)
 	 * 歌詞表示、背景・マスク表示のフェードイン時調整処理
 	 * @param {string} _type
 	 * @param {object} _data 
+	 * @returns
 	 */
 	const calcAnimationData = (_type, _data) => {
 
@@ -8757,6 +9157,7 @@ const pushArrows = (_dataObj, _speedOnFrame, _motionOnFrame, _firstArrivalFrame)
  * @param {number} _frame 
  * @param {object} _speedOnFrame 
  * @param {object} _motionOnFrame 
+ * @returns {{ frm: number, startY: number, arrivalFrm: number, motionFrm: number }}
  */
 const getArrowStartFrame = (_frame, _speedOnFrame, _motionOnFrame) => {
 
@@ -8785,6 +9186,7 @@ const getArrowStartFrame = (_frame, _speedOnFrame, _motionOnFrame) => {
  * @param {object} _speedOnFrame 
  * @param {number} _startFrame 
  * @param {number} _endFrame 
+ * @returns {number}
  */
 const getFrzLength = (_speedOnFrame, _startFrame, _endFrame) => {
 	let frzLength = 0;
@@ -8797,8 +9199,11 @@ const getFrzLength = (_speedOnFrame, _startFrame, _endFrame) => {
 
 /**
  * キーパターン(デフォルト)に対応する矢印番号を格納
+ * - 色変化、矢印・フリーズアローモーション、スクロール変化で
+ *   矢印レーンの番号を実際のキーパターンに対応する番号に置き換える際に使用
+ * - 例: [0, 1, 2, 3, 4] -> [4, 0, 1, 2, 3]
  */
-const convertReplaceNums = _ => {
+const convertReplaceNums = () => {
 	const tkObj = getKeyInfo();
 	const baseCharas = g_keyObj[`chara${g_keyObj.currentKey}_0`];
 	const convCharas = g_keyObj[`chara${tkObj.keyCtrlPtn}`];
@@ -8819,9 +9224,10 @@ const convertReplaceNums = _ => {
  * 色情報の格納
  * @param {string} _header 
  * @param {number} _frame 
- * @param {number} _val 
- * @param {string} _colorCd 
- * @param {string} _allFlg
+ * @param {number} _val 色番号
+ * @param {string} _colorCd カラーコード
+ * @param {string} _allFlg 全体色変化有無
+ * @param {string} _pattern 色変化種類 (Arrow, ArrowShadow, FrzNormal, FrzNormalBar, ...)
  */
 const pushColors = (_header, _frame, _val, _colorCd, _allFlg, _pattern = ``) => {
 
@@ -8873,7 +9279,17 @@ const pushColors = (_header, _frame, _val, _colorCd, _allFlg, _pattern = ``) => 
 			allUseTypes.push(`Frz`);
 		}
 		// 色変化情報の格納
-		baseHeaders.forEach(baseHeader => pushColor(baseHeader, g_workObj.replaceNums[_val] + addAll));
+		if (_val.startsWith('g')) {
+			// g付きの場合は矢印グループから対象の矢印番号を検索
+			const groupVal = setIntVal(_val.slice(1));
+			for (let j = 0; j < tkObj.keyNum; j++) {
+				if (g_keyObj[`color${tkObj.keyCtrlPtn}`][j] === groupVal) {
+					baseHeaders.forEach(baseHeader => pushColor(baseHeader, j + addAll));
+				}
+			}
+		} else {
+			baseHeaders.forEach(baseHeader => pushColor(baseHeader, g_workObj.replaceNums[setIntVal(_val)] + addAll));
+		}
 	};
 
 	/**
@@ -8979,8 +9395,8 @@ const pushCssMotions = (_header, _frame, _val, _styleName, _styleNameRev) => {
  * スクロール変化情報の格納
  * @param {string} _header 
  * @param {number} _frameArrow 
- * @param {number} _frameStep 
  * @param {number} _val 
+ * @param {number} _frameStep 
  * @param {number} _scrollDir 
  */
 const pushScrollchs = (_header, _frameArrow, _val, _frameStep, _scrollDir) => {
@@ -9014,7 +9430,7 @@ const pushScrollchs = (_header, _frameArrow, _val, _frameStep, _scrollDir) => {
 /**
  * メイン画面前の初期化処理
  */
-const getArrowSettings = _ => {
+const getArrowSettings = () => {
 
 	g_attrObj = {};
 	const tkObj = getKeyInfo();
@@ -9044,8 +9460,8 @@ const getArrowSettings = _ => {
 	g_workObj.keyGroupList = tkObj.keyGroupList;
 
 	const keyCtrlLen = g_workObj.keyCtrl.length;
-	g_workObj.keyCtrlN = [...Array(keyCtrlLen)].map(_ => []);
-	g_workObj.keyHitFlg = [...Array(keyCtrlLen)].map(_ => []);
+	g_workObj.keyCtrlN = [...Array(keyCtrlLen)].map(() => []);
+	g_workObj.keyHitFlg = [...Array(keyCtrlLen)].map(() => []);
 	for (let j = 0; j < g_workObj.keyCtrl.length; j++) {
 		for (let k = 0; k < g_workObj.keyCtrl[j].length; k++) {
 			g_workObj.keyCtrlN[j][k] = g_kCdN[g_workObj.keyCtrl[j][k]];
@@ -9141,7 +9557,9 @@ const getArrowSettings = _ => {
 			storageObj = g_localStorage;
 			addKey = g_keyObj.currentKey;
 		}
-		storageObj[`reverse${addKey}`] = g_stateObj.reverse;
+		if (g_headerObj.reverseUse) {
+			storageObj[`reverse${addKey}`] = g_stateObj.reverse;
+		}
 		storageObj[`keyCtrl${addKey}`] = setKeyCtrl(g_localKeyStorage, keyNum, keyCtrlPtn);
 		if (g_keyObj.currentPtn !== -1) {
 			storageObj[`keyCtrlPtn${addKey}`] = g_keyObj.currentPtn;
@@ -9191,10 +9609,11 @@ const getArrowSettings = _ => {
  * @param {object} _localStorage 保存先のローカルストレージ名
  * @param {number} _keyNum 
  * @param {string} _keyCtrlPtn 
+ * @returns {any[][]}
  */
 const setKeyCtrl = (_localStorage, _keyNum, _keyCtrlPtn) => {
 	const localPtn = `${g_keyObj.currentKey}_-1`;
-	const keyCtrl = [...Array(_keyNum)].map(_ => []);
+	const keyCtrl = [...Array(_keyNum)].map(() => []);
 	for (let j = 0; j < _keyNum; j++) {
 		for (let k = 0; k < g_keyObj[`keyCtrl${_keyCtrlPtn}`][j].length; k++) {
 			keyCtrl[j][k] = g_keyObj[`keyCtrl${_keyCtrlPtn}`][j][k];
@@ -9217,10 +9636,10 @@ const setKeyCtrl = (_localStorage, _keyNum, _keyCtrlPtn) => {
 /**
  * メイン画面初期化
  */
-const mainInit = _ => {
+const mainInit = () => {
 	clearWindow(true, `Main`);
 	const divRoot = document.getElementById(`divRoot`);
-	document.oncontextmenu = _ => false;
+	document.oncontextmenu = () => false;
 	g_currentPage = `main`;
 
 	g_currentArrows = 0;
@@ -9358,7 +9777,7 @@ const mainInit = _ => {
 	];
 
 	// Appearanceのオプション適用時は一部描画を隠す
-	changeAppearanceFilter(g_stateObj.appearance, g_appearanceRanges.includes(g_stateObj.appearance) ?
+	changeAppearanceFilter(g_appearanceRanges.includes(g_stateObj.appearance) ?
 		g_hidSudObj.filterPos : g_hidSudObj.filterPosDefault[g_stateObj.appearance]);
 
 	for (let j = 0; j < keyNum; j++) {
@@ -9678,17 +10097,15 @@ const mainInit = _ => {
 
 		// 曲中リトライ、タイトルバック
 		if (setCode === g_kCdN[g_headerObj.keyRetry]) {
+			g_audio.pause();
+			clearTimeout(g_timeoutEvtId);
 
 			if (g_isMac && keyIsShift()) {
 				// Mac OS、IPad OSはDeleteキーが無いためShift+BSで代用
-				g_audio.pause();
-				clearTimeout(g_timeoutEvtId);
 				titleInit();
 
 			} else {
 				// その他の環境では単にRetryに対応するキーのみで適用
-				g_audio.pause();
-				clearTimeout(g_timeoutEvtId);
 				clearWindow();
 				musicAfterLoaded();
 			}
@@ -9707,12 +10124,12 @@ const mainInit = _ => {
 			}
 
 		} else if (g_appearanceRanges.includes(g_stateObj.appearance) && g_stateObj.filterLock === C_FLG_OFF) {
+			const MAX_FILTER_POS = 100;
+			const MIN_FILTER_POS = 0;
 			if (setCode === g_hidSudObj.pgDown[g_stateObj.appearance][g_stateObj.reverse]) {
-				changeAppearanceFilter(g_stateObj.appearance, g_hidSudObj.filterPos < 100 ?
-					g_hidSudObj.filterPos + 1 : g_hidSudObj.filterPos);
+				changeAppearanceFilter(Math.min(g_hidSudObj.filterPos + 1, MAX_FILTER_POS));
 			} else if (setCode === g_hidSudObj.pgUp[g_stateObj.appearance][g_stateObj.reverse]) {
-				changeAppearanceFilter(g_stateObj.appearance, g_hidSudObj.filterPos > 0 ?
-					g_hidSudObj.filterPos - 1 : g_hidSudObj.filterPos);
+				changeAppearanceFilter(Math.max(g_hidSudObj.filterPos - 1, MIN_FILTER_POS));
 			}
 		}
 		return blockCode(setCode);
@@ -9723,7 +10140,7 @@ const mainInit = _ => {
 	 */
 	const mainKeyUpActFunc = {
 
-		OFF: _ => {
+		OFF: () => {
 			for (let j = 0; j < keyNum; j++) {
 				if (g_workObj.keyCtrlN[j].find(key => keyIsDown(key)) === undefined) {
 					$id(`stepDiv${j}`).display = C_DIS_NONE;
@@ -9731,7 +10148,7 @@ const mainInit = _ => {
 			}
 		},
 
-		ON: _ => { },
+		ON: () => { },
 	};
 
 	document.onkeyup = evt => {
@@ -9741,9 +10158,9 @@ const mainInit = _ => {
 
 	/**
 	 * 全体色変化（矢印）
-	 * @param {number} _j 
-	 * @param {number} _k 
-	 * @param {string} _name 
+	 * @param {number} _j 矢印位置
+	 * @param {number} _k 矢印の表示順
+	 * @param {string} _name 通常, ダミー
 	 */
 	const changeArrowColor = (_j, _k, _name) => {
 		if (g_workObj[`mk${toCapitalize(_name)}ColorChangeAll`][g_scoreObj.frameNum]) {
@@ -9835,8 +10252,8 @@ const mainInit = _ => {
 	/**
 	 * 矢印・フリーズアロー消去
 	 * 
-	 * @param _j 矢印位置
-	 * @param _deleteObj 削除オブジェクト
+	 * @param {number} _j 矢印位置
+	 * @param {string} _deleteName 削除オブジェクト名
 	 */
 	const judgeObjDelete = {};
 	g_typeLists.arrow.forEach(type =>
@@ -9850,13 +10267,13 @@ const mainInit = _ => {
 	 * 自動判定
 	 * ※mainInit内部で指定必須（arrowSprite指定）
 	 * 
-	 * @param _j 矢印位置
-	 * @param _arrow 矢印(オブジェクト)
+	 * @param {number} _j 矢印位置
+	 * @param {object} _arrow 矢印(オブジェクト)
 	 * 
-	 * @param _k 矢印の表示順
-	 * @param _frzRoot フリーズアロー(オブジェクト)
-	 * @param _cnt ステップゾーン到達までのフレーム数
-	 * @param _keyUpFrame キーを離したフレーム数
+	 * @param {number} _k 矢印の表示順
+	 * @param {object} _frzRoot フリーズアロー(オブジェクト)
+	 * @param {number} _cnt ステップゾーン到達までのフレーム数
+	 * @param {number} _keyUpFrame キーを離したフレーム数
 	 */
 	const judgeMotionFunc = {
 
@@ -9951,9 +10368,9 @@ const mainInit = _ => {
 	 * - ただし、判定対象の矢印／フリーズアローがジャスト付近の場合は判定対象を優先する
 	 *   (フリーズアローの場合、ヒット中の場合も判定対象が優先される)
 	 * 
-	 * @param _j 矢印の位置
-	 * @param _k 矢印の表示順
-	 * @param _cnt ステップゾーン到達までのフレーム数
+	 * @param {number} _j 矢印の位置
+	 * @param {number} _k 矢印の表示順
+	 * @param {number} _cnt ステップゾーン到達までのフレーム数
 	 */
 	const judgeNextFunc = {
 
@@ -10037,7 +10454,7 @@ const mainInit = _ => {
 
 	/**
 	 * 矢印生成
-	 * @param {number} _attrs 矢印個別の属性
+	 * @param {object} _attrs 矢印個別の属性
 	 *   (pos: 矢印種類, arrivalFrame: 到達フレーム数, initY: 初期表示位置, 
 	 *    initBoostY: Motion有効時の初期表示位置加算, motionFrame: アニメーション有効フレーム数)
 	 * @param {number} _arrowCnt 現在の判定矢印順
@@ -10058,13 +10475,29 @@ const mainInit = _ => {
 		const stepRoot = createEmptySprite(arrowSprite[dividePos], arrowName, {
 			x: g_workObj.stepX[_j], y: firstPosY, w: C_ARW_WIDTH, h: C_ARW_WIDTH,
 		});
+		/**
+		 * 矢印毎の属性情報
+		 */
 		g_attrObj[arrowName] = {
+			// 生存フレーム数
 			cnt: _attrs.arrivalFrame + 1,
+			// 生存フレーム数 (ストップ分除去、個別加速/Motionオプション用)
 			boostCnt: _attrs.motionFrame,
-			boostSpd: g_workObj.boostSpd, dividePos: dividePos,
-			dir: g_workObj.scrollDir[_j], boostDir: g_workObj.boostDir,
-			prevY: firstPosY, y: firstPosY,
+			// 個別加速量
+			boostSpd: g_workObj.boostSpd,
+			// ステップゾーン位置 (0: デフォルト, 1: リバース)
+			dividePos: dividePos,
+			// スクロール方向 (1: デフォルト, -1: リバース)
+			dir: g_workObj.scrollDir[_j],
+			// 個別加速方向 (1: 順方向加速, -1: 逆方向加速)
+			boostDir: g_workObj.boostDir,
+			// 前フレーム時の位置 (判定で使用)
+			prevY: firstPosY,
+			// 現フレーム時の位置
+			y: firstPosY,
 		};
+		// 矢印色の設定
+		// - 枠/塗りつぶし色: g_attrObj[arrowName].Arrow / ArrowShadow
 		g_typeLists.arrowColor.forEach(val => g_attrObj[arrowName][`Arrow${val}`] = g_workObj[`${_name}${val}Colors`][_j]);
 		arrowSprite[dividePos].appendChild(stepRoot);
 
@@ -10073,12 +10506,13 @@ const mainInit = _ => {
 			stepRoot.style.animationDuration = `${_attrs.arrivalFrame / g_fps}s`;
 		}
 
-		// 内側塗りつぶし矢印は、下記の順で作成する。
-		// 後に作成するほど前面に表示される。
-
+		/**
+		 * 矢印オブジェクトの生成
+		 * - 後で生成されたものが手前に表示されるため、塗りつぶし ⇒ 枠の順で作成
+		 */
 		// 矢印の内側を塗りつぶすか否か
 		if (g_headerObj.setShadowColor[colorPos] !== ``) {
-			// 矢印の塗り部分
+			// 矢印 (塗りつぶし)
 			const arrShadow = createColorObject2(`${_name}Shadow${_j}_${_arrowCnt}`, {
 				background: _shadowColor === `Default` ? _color : _shadowColor,
 				rotate: g_workObj.arrowRtn[_j], styleName: `Shadow`,
@@ -10089,7 +10523,7 @@ const mainInit = _ => {
 			stepRoot.appendChild(arrShadow);
 		}
 
-		// 矢印
+		// 矢印 (枠)
 		stepRoot.appendChild(createColorObject2(`${_name}Top${_j}_${_arrowCnt}`, {
 			background: _color, rotate: g_workObj.arrowRtn[_j],
 		}));
@@ -10122,12 +10556,14 @@ const mainInit = _ => {
 
 	/**
 	 * フリーズアロー生成
-	 * @param {number} _attrs 
-	 * @param {number} _arrowCnt 
-	 * @param {string} _name 
-	 * @param {string} _normalColor
-	 * @param {string} _barColor 
-	 * @param {string} _shadowColor
+	 * @param {object} _attrs フリーズアロー個別の属性
+	 *   (pos: 矢印種類, arrivalFrame: 到達フレーム数, initY: 初期表示位置, 
+	 *    initBoostY: Motion有効時の初期表示位置加算, motionFrame: アニメーション有効フレーム数)
+	 * @param {number} _arrowCnt 現在の判定フリーズアロー順
+	 * @param {string} _name フリーズアロー名
+	 * @param {string} _normalColor フリーズアロー(矢印)の色
+	 * @param {string} _barColor フリーズアロー(帯)の色
+	 * @param {string} _shadowColor フリーズアロー(塗りつぶし)の色
 	 */
 	const makeFrzArrow = (_attrs, _arrowCnt, _name, _normalColor, _barColor, _shadowColor) => {
 		const _j = _attrs.pos;
@@ -10142,13 +10578,40 @@ const mainInit = _ => {
 		const frzRoot = createEmptySprite(arrowSprite[dividePos], frzName, {
 			x: g_workObj.stepX[_j], y: firstPosY, w: C_ARW_WIDTH, h: C_ARW_WIDTH + firstBarLength,
 		});
+		/**
+		 * フリーズアロー毎の属性情報
+		 */
 		g_attrObj[frzName] = {
+			// 生存フレーム数
 			cnt: _attrs.arrivalFrame + 1,
+			// 生存フレーム数 (ストップ分除去、個別加速/Motionオプション用)
 			boostCnt: _attrs.motionFrame,
-			judgEndFlg: false, isMoving: true, frzBarLength: firstBarLength, keyUpFrame: 0,
-			boostSpd: g_workObj.boostSpd, dividePos: dividePos, dir: g_workObj.scrollDir[_j], boostDir: g_workObj.boostDir,
-			y: firstPosY, barY: C_ARW_WIDTH / 2 - firstBarLength * dividePos, btmY: firstBarLength * g_workObj.scrollDir[_j],
+			// 判定終了フラグ (false: 未判定, true: 判定済)
+			judgEndFlg: false,
+			// 移動中フラグ (false: 押しっぱなしの状態, true: 移動中)
+			isMoving: true,
+			// フリーズアローの長さ
+			frzBarLength: firstBarLength,
+			// キーを離していたフレーム数 (基準値超えでNG判定)
+			keyUpFrame: 0,
+			// 個別加速量
+			boostSpd: g_workObj.boostSpd,
+			// ステップゾーン位置 (0: デフォルト, 1: リバース)
+			dividePos: dividePos,
+			// スクロール方向 (1: デフォルト, -1: リバース)
+			dir: g_workObj.scrollDir[_j],
+			// 個別加速方向 (1: 順方向加速, -1: 逆方向加速)
+			boostDir: g_workObj.boostDir,
+			// 現フレーム時のフリーズアロー本体の位置
+			y: firstPosY,
+			// フリーズアロー(帯)の相対位置
+			barY: C_ARW_WIDTH / 2 - firstBarLength * dividePos,
+			// フリーズアロー(対矢印)の相対位置
+			btmY: firstBarLength * g_workObj.scrollDir[_j],
 		};
+		// フリーズアロー色の設定
+		// - 通常時 (矢印枠/矢印塗りつぶし/帯): g_attrObj[frzName].Normal / NormalShadow / NormalBar
+		// - ヒット時 (矢印枠/矢印塗りつぶし/帯): g_attrObj[frzName].Hit / HitShadow / HitBar
 		g_typeLists.frzColor.forEach(val => g_attrObj[frzName][val] = g_workObj[`${_name}${val}Colors`][_j]);
 		arrowSprite[dividePos].appendChild(frzRoot);
 
@@ -10158,8 +10621,10 @@ const mainInit = _ => {
 		}
 		let shadowColor = _shadowColor === `Default` ? _normalColor : _shadowColor;
 
-		// フリーズアローは、下記の順で作成する。
-		// 後に作成するほど前面に表示される。
+		/**
+		 * フリーズアローオブジェクトの生成
+		 * - 後で生成されたものが手前に表示されるため、以下の順で作成
+		 */
 		multiAppend(frzRoot,
 
 			// フリーズアロー帯(frzBar)
@@ -10264,7 +10729,7 @@ const mainInit = _ => {
 	/**
 	 * フレーム処理(譜面台)
 	 */
-	const flowTimeline = _ => {
+	const flowTimeline = () => {
 
 		const currentFrame = g_scoreObj.frameNum;
 		lblframe.textContent = g_scoreObj.baseFrame;
@@ -10518,32 +10983,32 @@ const mainInit = _ => {
 
 /**
  * アルファマスクの再描画 (Appearance: Hidden+, Sudden+ 用)
- * @param {string} _appearance
  * @param {number} _num 
  */
-const changeAppearanceFilter = (_appearance, _num = 10) => {
+const changeAppearanceFilter = (_num = 10) => {
+	const MAX_FILTER_POS = 100;
 	const topNum = g_hidSudObj[g_stateObj.appearance];
 	const bottomNum = (g_hidSudObj[g_stateObj.appearance] + 1) % 2;
-	if (_appearance === `Hid&Sud+` && _num > 50) {
-		_num = 50;
+	if (g_stateObj.appearance === `Hid&Sud+` && _num > MAX_FILTER_POS / 2) {
+		_num = MAX_FILTER_POS / 2;
 	}
 
-	const numPlus = (_appearance === `Hid&Sud+` ? _num : `0`);
+	const numPlus = (g_stateObj.appearance === `Hid&Sud+` ? _num : 0);
 	const topShape = `inset(${_num}% 0% ${numPlus}% 0%)`;
 	const bottomShape = `inset(${numPlus}% 0% ${_num}% 0%)`;
 
 	$id(`arrowSprite${topNum}`).clipPath = topShape;
 	$id(`arrowSprite${bottomNum}`).clipPath = bottomShape;
 
-	$id(`filterBar0`).top = wUnit(g_posObj.arrowHeight * _num / 100 + g_stateObj.hitPosition);
-	$id(`filterBar1`).top = wUnit(g_posObj.arrowHeight * (100 - _num) / 100 - g_stateObj.hitPosition);
+	$id(`filterBar0`).top = wUnit(g_posObj.arrowHeight * _num / MAX_FILTER_POS + g_stateObj.hitPosition);
+	$id(`filterBar1`).top = wUnit(g_posObj.arrowHeight * (MAX_FILTER_POS - _num) / MAX_FILTER_POS - g_stateObj.hitPosition);
 
-	if (g_appearanceRanges.includes(_appearance)) {
+	if (g_appearanceRanges.includes(g_stateObj.appearance)) {
 		$id(`filterView`).top =
 			$id(`filterBar${g_hidSudObj.std[g_stateObj.appearance][g_stateObj.reverse]}`).top;
 		filterView.textContent = `${_num}%`;
 
-		if (_appearance !== `Hid&Sud+` && g_workObj.dividePos.every(v => v === g_workObj.dividePos[0])) {
+		if (g_stateObj.appearance !== `Hid&Sud+` && g_workObj.dividePos.every(v => v === g_workObj.dividePos[0])) {
 			$id(`filterBar${(g_hidSudObj.std[g_stateObj.appearance][g_stateObj.reverse] + 1) % 2}`).display = C_DIS_NONE;
 		}
 		g_hidSudObj.filterPos = _num;
@@ -10556,7 +11021,9 @@ const changeAppearanceFilter = (_appearance, _num = 10) => {
  * @param {number} _x
  * @param {string} _class 
  * @param {number} _heightPos 
- * @param {string, number} _text
+ * @param {string|number} _text
+ * @param {string} [_display='inherit'] 表示有無 (inherit: 表示 / none: 非表示)
+ * @returns {HTMLDivElement}
  */
 const makeCounterSymbol = (_id, _x, _class, _heightPos, _text, _display = C_DIS_INHERIT) => {
 	return createDivCss2Label(_id, _text, {
@@ -10569,7 +11036,8 @@ const makeCounterSymbol = (_id, _x, _class, _heightPos, _text, _display = C_DIS_
 /**
  * ステップゾーンの表示・非表示切替
  * @param {number} _j
- * @param {string} _display 
+ * @param {string} _display
+ * @param {number} [_alpha=1] 
  */
 const appearStepZone = (_j, _display, _alpha = 1) => {
 	$id(`stepRoot${_j}`).display = _display;
@@ -10579,7 +11047,8 @@ const appearStepZone = (_j, _display, _alpha = 1) => {
 /**
  * 部分キーのステップゾーン出現処理
  * @param {number} _j 
- * @param {array} _targets 
+ * @param {string[]} _targets
+ * @param {number[]} [_alphas] ステップゾーン毎の可視状況 (style.opacity の値)
  */
 const appearKeyTypes = (_j, _targets, _alphas = fillArray(_targets.length, 1)) => {
 	appearStepZone(_j, C_DIS_NONE);
@@ -10592,8 +11061,8 @@ const appearKeyTypes = (_j, _targets, _alphas = fillArray(_targets.length, 1)) =
 
 /**
  * 個別・全体色変化
- * @param {array} _mkColor 
- * @param {array} _mkColorCd 
+ * @param {number[]} _mkColor 
+ * @param {string[]} _mkColorCd 
  * @param {string} _header
  * @param {string} _name
  */
@@ -10655,7 +11124,7 @@ const changeStepY = (_frameNum) =>
  * @param {number} _j 
  * @param {number} _k 
  * @param {string} _name
- * @param {number} _difFrame
+ * @param {number} [_difFrame=0]
  */
 const changeHitFrz = (_j, _k, _name, _difFrame = 0) => {
 	const frzNo = `${_j}_${_k}`;
@@ -10692,6 +11161,7 @@ const changeHitFrz = (_j, _k, _name, _difFrame = 0) => {
 	 * フリーズアロー(ヒット時)の色変更
 	 * - 生成時以降で全体色変化がある場合はその値へ置き換える
 	 * @param {string} _type 
+	 * @returns {string}
 	 */
 	const getColor = (_type) => {
 		const cColor = g_workObj[`${_name}${_type}Colors`][_j];
@@ -10741,13 +11211,15 @@ const changeFailedFrz = (_j, _k) => {
 /**
  * キーを押したかどうかを判定
  * @param {number} _keyCode 
+ * @returns {boolean}
  */
 const keyIsDown = _keyCode => g_inputKeyBuffer[_keyCode];
 
 /**
  * 押したキーがシフトキーかどうかを判定
+ * @returns {boolean}
  */
-const keyIsShift = _ => keyIsDown(g_kCdNameObj.shiftLKey) || keyIsDown(g_kCdNameObj.shiftRKey);
+const keyIsShift = () => keyIsDown(g_kCdNameObj.shiftLKey) || keyIsDown(g_kCdNameObj.shiftRKey);
 
 /**
  * 矢印・フリーズアロー判定
@@ -10839,8 +11311,8 @@ const judgeArrow = _j => {
 /**
  * タイミングズレを表示
  * @param {number} _difFrame 
- * @param {string} _fjdg
- * @param {number} _justFrames
+ * @param {string} _fjdg フリーズアロー判定有無 (フリーズアローのときは"F"が入る)
+ * @param {number} _justFrames Fast/Slowの表示条件フレーム数
  */
 const displayDiff = (_difFrame, _fjdg = ``, _justFrames = g_headerObj.justFrames) => {
 	let diffJDisp = ``;
@@ -10862,7 +11334,7 @@ const displayDiff = (_difFrame, _fjdg = ``, _justFrames = g_headerObj.justFrames
 
 /**
  * ライフゲージバーの色、数値を変更
- * @param {string} _state 
+ * @param {string} [_state=''] 
  */
 const changeLifeColor = (_state = ``) => {
 	const lblLife = document.getElementById(`lblLife`);
@@ -10881,7 +11353,10 @@ const changeLifeColor = (_state = ``) => {
 	lifeBar.style.height = wUnit((g_headerObj.playingHeight - 100) * intLifeVal / g_headerObj.maxLifeVal);
 };
 
-const lifeRecovery = _ => {
+/**
+ * ゲージ回復処理
+ */
+const lifeRecovery = () => {
 	g_workObj.lifeVal += g_workObj.lifeRcv;
 
 	if (g_workObj.lifeVal >= g_headerObj.maxLifeVal) {
@@ -10894,7 +11369,7 @@ const lifeRecovery = _ => {
 
 /**
  * ゲージダメージ処理
- * @param {boolean} _excessive 
+ * @param {boolean} [_excessive=false] 空押し判定有無
  */
 const lifeDamage = (_excessive = false) => {
 	g_workObj.lifeVal -= g_workObj.lifeDmg * (_excessive ? 0.25 : 1);
@@ -10911,7 +11386,7 @@ const lifeDamage = (_excessive = false) => {
  * 判定キャラクタの表示、判定済矢印数・判定数のカウンタ
  * @param {string} _name 
  * @param {string} _character 
- * @param {string} _fjdg 
+ * @param {string} [_fjdg=''] 
  */
 const changeJudgeCharacter = (_name, _character, _fjdg = ``) => {
 	g_resultObj[_name]++;
@@ -10924,7 +11399,7 @@ const changeJudgeCharacter = (_name, _character, _fjdg = ``) => {
 /**
  * コンボの更新
  */
-const updateCombo = _ => {
+const updateCombo = () => {
 	if (++g_resultObj.combo > g_resultObj.maxCombo) {
 		g_resultObj.maxCombo = g_resultObj.combo;
 		lblMCombo.textContent = g_resultObj.maxCombo;
@@ -11036,7 +11511,11 @@ const checkJudgment = (_difCnt) => {
 	return [jdgFuncList[idx], jdgList[idx]];
 };
 
-// クリア表示
+/**
+ * クリア表示
+ * @param {string} _state 
+ * @returns {string}
+ */
 const resultViewText = _state => _state === `` ? `` :
 	`<span class="result_${toCapitalize(_state)}">${g_lblNameObj[_state]}</span>`;
 
@@ -11051,7 +11530,7 @@ const makeFinishView = _text => {
 		document.getElementById(label).textContent = ``);
 };
 
-const finishViewing = _ => {
+const finishViewing = () => {
 	if (g_currentArrows === g_fullArrows) {
 		if (g_resultObj.ii + g_resultObj.kita === g_fullArrows) {
 			g_resultObj.spState = `allPerfect`;
@@ -11073,7 +11552,7 @@ const finishViewing = _ => {
 /**
  * リザルト画面初期化
  */
-const resultInit = _ => {
+const resultInit = () => {
 
 	clearWindow(true);
 	g_currentPage = `result`;
@@ -11148,6 +11627,7 @@ const resultInit = _ => {
 	const allScore = g_fullArrows * 10;
 	const resultScore = Math.round(scoreTmp / allScore * g_maxScore) || 0;
 	g_resultObj.score = resultScore;
+	const allArrowsPlayed = playingArrows === g_fullArrows;
 
 	// ランク計算
 	let rankMark = g_rankObj.rankMarkX;
@@ -11156,7 +11636,7 @@ const resultInit = _ => {
 		rankMark = g_rankObj.rankMarkF;
 		rankColor = g_rankObj.rankColorF;
 		g_resultObj.spState = `failed`;
-	} else if (playingArrows === g_fullArrows && g_stateObj.autoAll === C_FLG_OFF && !(g_headerObj.excessiveJdgUse && g_stateObj.excessive === C_FLG_OFF)) {
+	} else if (allArrowsPlayed && g_stateObj.autoAll === C_FLG_OFF && !(g_headerObj.excessiveJdgUse && g_stateObj.excessive === C_FLG_OFF)) {
 		if (g_resultObj.spState === ``) {
 			g_resultObj.spState = `cleared`;
 		}
@@ -11188,14 +11668,17 @@ const resultInit = _ => {
 	/**
 	 * プレイスタイルのカスタム有無
 	 * @param {string} _flg 
-	 * @param {string, boolean} _defaultSet デフォルト値
+	 * @param {string|boolean} _defaultSet デフォルト値
 	 * @param {string} _displayText 
+	 * @returns {string}
 	 */
 	const withOptions = (_flg, _defaultSet, _displayText = _flg) =>
 		(_flg !== _defaultSet ? getStgDetailName(_displayText) : ``);
 
+	// 譜面名の組み立て処理 (Ex: 9Akey / Normal-Leftless (maker) [X-Mirror])
+	const keyUnitName = getStgDetailName(getKeyUnitName(g_keyObj.currentKey));
 	const difDatas = [
-		`${getKeyName(g_headerObj.keyLabels[g_stateObj.scoreId])}${transKeyName} ${getStgDetailName('key')} / ${g_headerObj.difLabels[g_stateObj.scoreId]}`,
+		`${getKeyName(g_headerObj.keyLabels[g_stateObj.scoreId])}${transKeyName} ${keyUnitName} / ${g_headerObj.difLabels[g_stateObj.scoreId]}`,
 		`${withOptions(g_autoPlaysBase.includes(g_stateObj.autoPlay), true, `-${getStgDetailName(g_stateObj.autoPlay)}${getStgDetailName('less')}`)}`,
 		`${withOptions(g_headerObj.makerView, false, `(${g_headerObj.creatorNames[g_stateObj.scoreId]})`)}`,
 		`${withOptions(g_stateObj.shuffle, C_FLG_OFF, `[${shuffleName}]`)}`
@@ -11203,6 +11686,7 @@ const resultInit = _ => {
 	let difData = difDatas.filter(value => value !== ``).join(` `);
 	const difDataForImage = difDatas.filter((value, j) => value !== `` && j !== 2).join(` `);
 
+	// 設定の組み立て処理 (Ex: 4x, Brake, Reverse, Sudden+, NoRecovery)
 	let playStyleData = [
 		`${g_stateObj.speed}${g_lblNameObj.multi}`,
 		`${withOptions(g_stateObj.motion, C_FLG_OFF)}`,
@@ -11212,6 +11696,7 @@ const resultInit = _ => {
 		`${withOptions(g_stateObj.gauge, g_settings.gauges[0])}`
 	].filter(value => value !== ``).join(`, `);
 
+	// Display設定の組み立て処理 (Ex: Step : FlatBar, Judge, Life : OFF)
 	let displayData = [
 		withOptions(g_stateObj.d_stepzone, C_FLG_ON, g_lblNameObj.rd_StepZone +
 			`${g_stateObj.d_stepzone === C_FLG_OFF ? `` : ` : ${g_stateObj.d_stepzone}`}`),
@@ -11257,7 +11742,14 @@ const resultInit = _ => {
 		makeCssResultPlayData(`lblDisplay2Data`, dataRX, g_cssObj.result_style, 5, display2Data),
 	);
 
-	// キャラクタ、スコア描画のID共通部、色CSS名、スコア変数名
+	/**
+	 * キャラクタ、スコア描画のID共通部、色CSS名、スコア変数名
+	 * @property {number} pos 表示位置(縦)
+	 * @property {string} id 表示用ラベルフッター
+	 * @property {string} color CSS用ラベルフッター
+	 * @property {string} label 表示名
+	 * @property {string} dfColor 表示する文字のカラーコード (リザルト画像で使用)
+	 */
 	const jdgScoreObj = {
 		ii: { pos: 0, id: `Ii`, color: `ii`, label: g_lblNameObj.j_ii, dfColor: `#66ffff`, },
 		shakin: { pos: 1, id: `Shakin`, color: `shakin`, label: g_lblNameObj.j_shakin, dfColor: `#99ff99`, },
@@ -11318,7 +11810,7 @@ const resultInit = _ => {
 	divRoot.appendChild(lblResultPre);
 
 	divRoot.appendChild(createDivCss2Label(`lblResultPre2`,
-		resultViewText(g_gameOverFlg ? `failed` : (playingArrows === g_fullArrows ? g_resultObj.spState : ``)),
+		resultViewText(g_gameOverFlg ? `failed` : (allArrowsPlayed ? g_resultObj.spState : ``)),
 		g_lblPosObj.lblResultPre2, g_cssObj.result_Cleared));
 
 	// プレイデータは Cleared & Failed に合わせて表示
@@ -11373,7 +11865,7 @@ const resultInit = _ => {
 
 		if (g_stateObj.dataSaveFlg) {
 
-			const setScoreData = _ => {
+			const setScoreData = () => {
 				g_localStorage.highscores[scoreName].dateTime = currentDateTime;
 				g_localStorage.highscores[scoreName].rankMark = rankMark;
 				g_localStorage.highscores[scoreName].rankColor = rankColor;
@@ -11416,7 +11908,9 @@ const resultInit = _ => {
 			if (![``, `failed`, `cleared`].includes(g_resultObj.spState)) {
 				g_localStorage.highscores[scoreName][g_resultObj.spState] = true;
 			}
-			if (!g_gameOverFlg && g_finishFlg && g_workObj.requiredAccuracy !== `----`) {
+			const isGameCompleted = !g_gameOverFlg && g_finishFlg;
+			const hasValidAccuracy = g_workObj.requiredAccuracy !== `----`;
+			if (isGameCompleted && hasValidAccuracy && allArrowsPlayed) {
 				if (g_localStorage.highscores[scoreName].clearLamps === undefined) {
 					g_localStorage.highscores[scoreName].clearLamps = [];
 				}
@@ -11449,7 +11943,8 @@ const resultInit = _ => {
 	// X (Twitter)用リザルト
 	// スコアを上塗りする可能性があるため、カスタムイベント後に配置
 	const hashTag = (hasVal(g_headerObj.hashTag) ? ` ${g_headerObj.hashTag}` : ``);
-	let tweetDifData = `${getKeyName(g_headerObj.keyLabels[g_stateObj.scoreId])}${transKeyName}${getStgDetailName('k-')}${g_headerObj.difLabels[g_stateObj.scoreId]}${assistFlg}`;
+	const keyUnitAbbName = keyUnitName.slice(0, 1) || ``;
+	let tweetDifData = `${getKeyName(g_headerObj.keyLabels[g_stateObj.scoreId])}${transKeyName}${getStgDetailName(keyUnitAbbName + '-')}${g_headerObj.difLabels[g_stateObj.scoreId]}${assistFlg}`;
 	if (g_stateObj.shuffle !== `OFF`) {
 		tweetDifData += `:${shuffleName}`;
 	}
@@ -11554,16 +12049,16 @@ const resultInit = _ => {
 
 		tmpDiv.appendChild(canvas);
 
-		const viewResultImage = _ => {
+		const viewResultImage = () => {
 			if (document.getElementById(`tmpClose`) === null) {
-				divRoot.oncontextmenu = _ => true;
+				divRoot.oncontextmenu = () => true;
 				makeLinkButton(tmpDiv, `Tmp`);
-				tmpDiv.appendChild(createCss2Button(`tmpClose`, g_lblNameObj.b_close, _ => true,
+				tmpDiv.appendChild(createCss2Button(`tmpClose`, g_lblNameObj.b_close, () => true,
 					Object.assign(g_lblPosObj.btnRsCopyClose, {
-						resetFunc: _ => {
+						resetFunc: () => {
 							tmpDiv.removeChild(canvas);
 							divRoot.removeChild(tmpDiv);
-							divRoot.oncontextmenu = _ => false;
+							divRoot.oncontextmenu = () => false;
 						},
 					}), g_cssObj.button_Back));
 				tmpDiv.appendChild(createDescDiv(`resultImageDesc`, g_lblNameObj.resultImageDesc));
@@ -11596,9 +12091,17 @@ const resultInit = _ => {
 		}
 	};
 
-	/** 音源、ループ処理の停止 */
+	/**
+	 * 音源、ループ処理の停止
+	 * @param {string} _id 
+	 * @param {string} _name 
+	 * @param {object} _posObj 
+	 * @param {function} _func 
+	 * @param {...any} _cssClass 
+	 * @returns {HTMLDivElement}
+	 */
 	const resetCommonBtn = (_id, _name, _posObj, _func, _cssClass) =>
-		createCss2Button(_id, _name, _ => {
+		createCss2Button(_id, _name, () => {
 			if (g_finishFlg) {
 				g_audio.pause();
 			}
@@ -11614,13 +12117,13 @@ const resultInit = _ => {
 	const makeLinkButton = (_div = divRoot, _param = ``) => {
 		multiAppend(_div,
 			// リザルトデータをX (Twitter)へ転送
-			createCss2Button(`btnTweet${_param}`, g_lblNameObj.b_tweet, _ => true, Object.assign(g_lblPosObj.btnRsTweet, {
-				resetFunc: _ => openLink(tweetResult),
+			createCss2Button(`btnTweet${_param}`, g_lblNameObj.b_tweet, () => true, Object.assign(g_lblPosObj.btnRsTweet, {
+				resetFunc: () => openLink(tweetResult),
 			}), g_cssObj.button_Tweet),
 
 			// Discordへのリンク
-			createCss2Button(`btnGitter${_param}`, g_lblNameObj.b_gitter, _ => true, Object.assign(g_lblPosObj.btnRsGitter, {
-				resetFunc: _ => openLink(g_linkObj.discord),
+			createCss2Button(`btnGitter${_param}`, g_lblNameObj.b_gitter, () => true, Object.assign(g_lblPosObj.btnRsGitter, {
+				resetFunc: () => openLink(g_linkObj.discord),
 			}), g_cssObj.button_Discord),
 		);
 	}
@@ -11632,7 +12135,7 @@ const resultInit = _ => {
 		resetCommonBtn(`btnBack`, g_lblNameObj.b_back, g_lblPosObj.btnRsBack, titleInit, g_cssObj.button_Back),
 
 		// リザルトデータをクリップボードへコピー
-		createCss2Button(`btnCopy`, g_lblNameObj.b_copy, _ =>
+		createCss2Button(`btnCopy`, g_lblNameObj.b_copy, () =>
 			copyTextToClipboard(keyIsShift() ?
 				unEscapeHtml(resultCommonTmp) : resultText, g_msgInfoObj.I_0001),
 			g_lblPosObj.btnRsCopy, g_cssObj.button_Setting),
@@ -11642,9 +12145,9 @@ const resultInit = _ => {
 		// リトライ
 		resetCommonBtn(`btnRetry`, g_lblNameObj.b_retry, g_lblPosObj.btnRsRetry, loadMusic, g_cssObj.button_Reset),
 
-		createCss2Button(`btnCopyImage`, `📷`, _ => true,
+		createCss2Button(`btnCopyImage`, `📷`, () => true,
 			Object.assign(g_lblPosObj.btnRsCopyImage, {
-				resetFunc: _ => copyResultImageData(g_msgInfoObj.I_0001),
+				resetFunc: () => copyResultImageData(g_msgInfoObj.I_0001),
 			}), g_cssObj.button_Default_NoColor),
 	);
 
@@ -11664,7 +12167,7 @@ const resultInit = _ => {
 	/**
 	 * タイトルのモーション設定
 	 */
-	const flowResultTimeline = _ => {
+	const flowResultTimeline = () => {
 
 		// ユーザカスタムイベント(フレーム毎)
 		g_customJsObj.resultEnterFrame.forEach(func => func());
@@ -11698,8 +12201,8 @@ const resultInit = _ => {
 	flowResultTimeline();
 
 	// キー操作イベント（デフォルト）
-	setShortcutEvent(g_currentPage, _ => true, { dfEvtFlg: true });
-	document.oncontextmenu = _ => true;
+	setShortcutEvent(g_currentPage, () => true, { dfEvtFlg: true });
+	document.oncontextmenu = () => true;
 
 	g_skinJsObj.result.forEach(func => func());
 };
@@ -11707,8 +12210,19 @@ const resultInit = _ => {
 /**
  * リザルトフォーマットの整形処理
  * @param {string} _format 
- * @param {object} フォーマット置き換え変数群 
- * @returns 
+ * @param {object} object フォーマット置き換え変数群
+ * @param {string} object.hashTag ハッシュタグ
+ * @param {string} object.musicTitle 曲名
+ * @param {string} object.tweetDifData 譜面名
+ * @param {string} object.tuning 製作者名
+ * @param {string} object.rankMark ランク
+ * @param {string} object.playStyleData プレイ設定
+ * @param {object} object.highscore ハイスコア（判定別）
+ * @param {string} object.tweetExcessive 空押し判定状況
+ * @param {string} object.tweetFrzJdg フリーズアロー判定状況
+ * @param {string} object.tweetMaxCombo コンボ数状況
+ * @param {string} object.baseTwitUrl X投稿用URL
+ * @returns {string}
  */
 const makeResultText = (_format, {
 	hashTag, musicTitle, tweetDifData, tuning, rankMark, playStyleData,
@@ -11735,6 +12249,9 @@ const makeResultText = (_format, {
  * @param {number} _heightPos 
  * @param {string} _text
  * @param {string} _align
+ * @param {number} [object.w=400]
+ * @param {number} [object.siz=g_limitObj.mainSiz]
+ * @returns {HTMLDivElement}
  */
 const makeCssResultPlayData = (_id, _x, _class, _heightPos, _text, _align = C_ALIGN_CENTER, { w = 400, siz = g_limitObj.mainSiz } = {}) =>
 	createDivCss2Label(_id, _text, {
@@ -11749,6 +12266,7 @@ const makeCssResultPlayData = (_id, _x, _class, _heightPos, _text, _align = C_AL
  * @param {number} _heightPos 
  * @param {string} _text
  * @param {string} _align
+ * @returns {HTMLDivElement}
  */
 const makeCssResultSymbol = (_id, _x, _class, _heightPos, _text, _align = C_ALIGN_LEFT) =>
 	makeCssResultPlayData(_id, _x, _class, _heightPos, _text, _align, { w: 150, siz: g_limitObj.jdgCntsSiz });
