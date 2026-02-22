@@ -1,7 +1,7 @@
 ﻿'use strict';
 /**
  * Dancing☆Onigiri 設定用jsファイル
- * Template Update: 2024/09/04 (v37.5.0)
+ * Template Update: 2025/03/16 (v40.6.0)
  * 
  * このファイルでは、作品全体に対しての初期設定を行うことができます。
  * 譜面データ側で個別に同様の項目が設定されている場合は、譜面データ側の設定が優先されます。
@@ -137,7 +137,7 @@ g_presetObj.excessiveJdgUse = false;
 */
 
 /** フリーズアローのデフォルト色セットの利用有無 (true: 使用, false: 矢印色を優先してセット) */
-g_presetObj.frzColors = true;
+g_presetObj.frzColors = false;
 
 /**
   矢印色変化に対応してフリーズアロー色を追随する範囲の設定 (Normal: 通常時、Hit: ヒット時)
@@ -172,16 +172,18 @@ g_presetObj.customDesignUse = {
 
 /**
   デフォルト画像セットの設定
-  (セット対象のフォルダ名, 拡張子, 画像回転有無(true or false), Flat時ステップ間隔の順に指定)
+  (セット対象のフォルダ名, 拡張子, 画像回転有無(true or false), Flat時ステップ間隔, リモート時のディレクトリの順に指定)
 
   事前に、[img]フォルダ配下にセット対象のサブフォルダを作成し、その中に一式を入れておく必要あり
   下記の場合は[classic]フォルダに[png]形式の画像一式をデフォルト画像セットとして使用する
+  なお、リモート時のディレクトリ(jsdelivr)を指定した場合はサブフォルダの作成及び格納は不要
 
   未指定の場合のデフォルト値は以下の通り
 	セット対象のフォルダ名：`` (imgフォルダ直下)
 	拡張子：`svg`形式
 	画像回転有無：true(回転有り)
 	Flat時ステップ間隔：50(px) ※矢印サイズ
+	リモート時のディレクトリ：`` (指定なし。自サーバーの画像を使用する)
 */
 //g_presetObj.imageSets = [``, `classic,png`, `classic-thin,png`, `note,svg,false,0`];
 
@@ -246,6 +248,16 @@ g_presetObj.settingUse = {
 	//	background: `true`,
 	//	arrowEffect: `true`,
 	//	special: `true`,
+
+	//  playWindow: `true`,
+	//  stepArea: `true`,
+	//  frzReturn : `true`,
+	//  shaking : `true`,
+	//  effect : `true`,
+	//  camoufrage : `true`,
+	//  swapping : `true`,
+	//  judgRange : `true`,
+	//  autoRetry : `true`,
 };
 
 /*
@@ -408,32 +420,27 @@ g_presetObj.lblRenames = {
 
 /**
  * カスタムキー定義（共通）
- * 指定方法は作品別にカスタムキーを定義する方法と同じ（ただし、keyExtraList必須）
+ * 指定方法は作品別にカスタムキーを定義する方法と同じ
  * 
  * 定義方法は下記を参照のこと
  * https://github.com/cwtickle/danoniplus/wiki/keys
  * https://github.com/cwtickle/danoniplus/wiki/tips-0004-extrakeys
  */
 /*
-g_presetObj.keysData = `
+g_presetObj.keysDataLocal.push(`
 
-|keyExtraList=6,9v|
-|color6=0,1,0,1,0,2$2,0,1,0,1,0|
+|keyCtrl6=K,O,L,P,Semicolon,Space$Space,K,O,L,P,Semicolon|
 |chara6=left,leftdia,down,rightdia,right,space$space,left,leftdia,down,rightdia,right|
-|div6=6$6|
+|color6=0,1,0,1,0,2$2,0,1,0,1,0|
 |stepRtn6=0,45,-90,135,180,onigiri$onigiri,0,45,-90,135,180|
-|keyCtrl6=75/0,79/0,76/0,80/0,187/0,32/0$32/0,75/0,79/0,76/0,80/0,187/0|
 |shuffle6=1,1,1,1,1,0$0,1,1,1,1,1|
 
-|chara9v=9B_0$9B_0|
-|color9v=1,0,1,0,2,0,1,0,1$9B_0|
-|div9v=9$9|
-|keyCtrl9v=52/0,82/0,70/0,86/0,32/0,78/0,74/0,73/0,57/0$9B_0|
-|pos9v=0,1,2,3,4,5,6,7,8$0,1,2,3,4,5,6,7,8|
-|scroll9v=---::1,1,-1,-1,-1,-1,-1,1,1/flat::1,1,1,1,1,1,1,1,1$9B_0|
-|shuffle9v=9B_0$9B_0|
-|stepRtn9v=90,120,150,180,onigiri,0,30,60,90$9B_0|
-|transKey9v=$9B|
+|keyCtrl9v=D4,R,F,V,Space,N,J,I,D9|
+|chara9v=9B_0|
+|color9v=9B_0|
+|stepRtn9v=90,120,150,180,onigiri,0,30,60,90|
+|shuffle9v=9B_0|
+|scroll9v=---::1,1,-,-,-,-,-,1,1/flat::1,1,1,1,1,1,1,1,1|
 
-`;
+`);
 */

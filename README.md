@@ -1,6 +1,7 @@
 # Dancing☆Onigiri (CW Edition)
 
 [![CodeQL](https://github.com/cwtickle/danoniplus/workflows/CodeQL/badge.svg)](https://github.com/cwtickle/danoniplus/actions?query=workflow%3ACodeQL)
+![CodeRabbit Pull Request Reviews](https://img.shields.io/coderabbit/prs/github/cwtickle/danoniplus?utm_source=oss&utm_medium=github&utm_campaign=cwtickle%2Fdanoniplus&labelColor=171717&color=FF570A&link=https%3A%2F%2Fcoderabbit.ai&label=CodeRabbit+Reviews)
 [![Discord](https://img.shields.io/discord/698460971231870977?style=flat&logo=discord&logoColor=%23ffffff&label=Discord&labelColor=%236666ff&color=%23000066)](https://discord.gg/YVWUdUGyMy)  
 [![GitHub release (latest SemVer)](https://img.shields.io/github/v/release/cwtickle/danoniplus?sort=semver)](https://github.com/cwtickle/danoniplus/security/policy)
 [![GitHub All Releases](https://img.shields.io/github/downloads/cwtickle/danoniplus/total?color=%23ff3399&label=downloads%20%28recently%29)](https://github.com/cwtickle/danoniplus/releases)
@@ -120,9 +121,13 @@ If you would like to cooperate with the development, please see below. Even if y
 - [Dancing☆Onigiri エディター(CW Edition 対応)](https://github.com/superkuppabros/danoni-editor) @superkuppabros
 - [ダンおに曲データjs化ツール](https://github.com/suzme/danoni-base64) @suzme
 - [ダンおに矢印色ツール](https://github.com/suzme/danoni-colorpicker) @suzme
+- [ダンおにゲージ計算機 (Gauge Calculator)](http://www.omission0.com/other/gauge_calculator/) @goe0
+- [ダンおに波形解析ツール](https://github.com/suzme/danoni-waveform) @suzme
+
+#### Conversion Tool from Legacy Flash Environments / 旧Flashからの変換ツール
+
 - [Dancing☆Onigiri Chart Reverser](https://github.com/cwtickle/danoniplus-reverser) @cwtickle
 - [Dancing☆Onigiri Chart Converter](https://github.com/cwtickle/danoniplus-converter) @cwtickle
-- [ダンおにゲージ計算機 (Gauge Calculator)](http://www.omission0.com/other/gauge_calculator/) @goe0
 
 ### Kirizma / キリズマ
 

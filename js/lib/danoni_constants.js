@@ -5,7 +5,7 @@
  *
  * Source by tickle
  * Created : 2019/11/19
- * Revised : 2024/12/02 (v38.1.0)
+ * Revised : 2026/02/23 (v44.5.0)
  *
  * https://github.com/cwtickle/danoniplus
  */
@@ -75,6 +75,10 @@ const g_limitObj = {
     graphHeight: 240,
     graphMiniSiz: 12,
 
+    // ゲージ推移グラフ表示部分の幅、高さ
+    gaugeTransitionWidth: 430,
+    gaugeTransitionHeight: 210,
+
     // その他のフォントサイズ
     titleSiz: 32,
     mainSiz: 14,
@@ -93,6 +97,7 @@ const g_limitObj = {
 
 /** 設定項目の位置 */
 const g_settingPos = {
+    dataMgt: {},
     option: {
         difficulty: { heightPos: 0, y: -5, dw: 0, dh: 10 },
         speed: { heightPos: 2, y: 0, dw: 0, dh: 0 },
@@ -110,6 +115,17 @@ const g_settingPos = {
         appearance: { heightPos: 7.4, y: 10, dw: 0, dh: 0 },
         opacity: { heightPos: 9, y: 10, dw: 0, dh: 0 },
         hitPosition: { heightPos: 10, y: 10, dw: 0, dh: 0 },
+    },
+    exSetting: {
+        playWindow: { heightPos: 0, y: 0, dw: 0, dh: 0 },
+        stepArea: { heightPos: 1, y: 0, dw: 0, dh: 0 },
+        frzReturn: { heightPos: 2.5, y: 0, dw: 0, dh: 0 },
+        shaking: { heightPos: 3.5, y: 0, dw: 0, dh: 0 },
+        effect: { heightPos: 5, y: 0, dw: 0, dh: 0 },
+        camoufrage: { heightPos: 6, y: 0, dw: 0, dh: 0 },
+        swapping: { heightPos: 7, y: 0, dw: 0, dh: 0 },
+        judgRange: { heightPos: 8.5, y: 0, dw: 0, dh: 0 },
+        autoRetry: { heightPos: 12.5, y: 0, dw: 0, dh: 0 },
     },
 };
 
@@ -145,20 +161,28 @@ let [g_sWidth, g_sHeight] = [
 ];
 $id(`canvas-frame`).width = `${Math.max(g_sWidth, 500)}px`;
 $id(`canvas-frame`).height = `${Math.max(g_sHeight, 500)}px`;
-$id(`canvas-frame`).margin = `auto`;
+$id(`canvas-frame`).margin = C_DIS_AUTO;
 
 const g_btnWidth = (_multi = 1) => Math.min(g_sWidth, g_limitObj.btnBaseWidth) * _multi;
 const g_btnX = (_multi = 0) => g_btnWidth(_multi) + Math.max((g_sWidth - g_limitObj.btnBaseWidth) / 2, 0);
+const g_slopeAngle = () => (Math.atan2(
+    g_sHeight,
+    g_keyObj[`minWidth${g_headerObj.keyLabels[g_stateObj.scoreId]}`] || g_keyObj.minWidthDefault
+) * 180) / Math.PI * 2 - 40;
 
 // 固定ウィンドウサイズ
 const g_windowObj = {
-    divRoot: { margin: `auto`, letterSpacing: `normal` },
+    divRoot: { margin: C_DIS_AUTO, letterSpacing: `normal`, pointerEvents: C_DIS_AUTO },
     divBack: { background: `linear-gradient(#000000, #222222)` },
 
     colorPickSprite: { x: 0, y: 90, w: 50, h: 280 },
 };
 
 const g_lblPosObj = {};
+const getScMsg = {
+    TitleBack: () => g_lblNameObj.kcShortcutDesc1.split(`{0}`).join(g_isMac ? `Shift+${g_kCd[g_headerObj.keyRetry]}` : g_kCd[g_headerObj.keyTitleBack]),
+    Retry: () => g_lblNameObj.kcShortcutDesc2.split(`{1}`).join(g_kCd[g_headerObj.keyRetry]),
+};
 
 /**
  * 可変部分のウィンドウサイズを更新
@@ -175,17 +199,22 @@ const g_lblPosObj = {};
  */
 const updateWindowSiz = () => {
     Object.assign(g_windowObj, {
+        keyTitleSprite: { x: g_btnX(1 / 4), y: g_sHeight / 2 - 5, w: g_btnWidth(1 / 2), h: 16 },
+        mSelectTitleSprite: { x: g_btnX(), y: 0, w: g_btnWidth(), h: g_sHeight, clipPath: `inset(12% 0 8% 0)` },
         optionSprite: { x: (g_sWidth - 450) / 2, y: 65, w: 450, h: 325 },
-        difList: { x: 165, y: 60, w: 280, h: 270 + g_sHeight - 500, overflow: `auto` },
-        difCover: { x: 20, y: 60, w: 145, h: 270 + g_sHeight - 500, opacity: 0.95 },
-        difFilter: { x: 0, y: 66, w: 140, h: 204 + g_sHeight - 500, overflow: `auto` },
+        dataSprite: { x: g_btnX() + (g_sWidth - Math.max(g_sWidth - 100, 450)) / 2, y: 65, w: Math.max(g_sWidth - 100, 450), h: 325 },
+        keyListSprite: { x: 0, y: g_limitObj.setLblHeight * 7.5 + 40, w: 150, h: g_sHeight - 380, overflow: C_DIS_AUTO },
+        difList: { x: 165, y: 60, w: 280, h: 270 + g_sHeight - 500, overflow: C_DIS_AUTO, pointerEvents: C_DIS_AUTO },
+        difCover: { x: 20, y: 60, w: 145, h: 270 + g_sHeight - 500, opacity: 0.95, pointerEvents: C_DIS_AUTO },
+        difFilter: { x: 0, y: 66, w: 140, h: 204 + g_sHeight - 500, overflow: C_DIS_AUTO, pointerEvents: C_DIS_AUTO },
         displaySprite: { x: 25, y: 30, w: (g_sWidth - 450) / 2, h: g_limitObj.setLblHeight * 5 },
-        scoreDetail: { x: 20, y: 85, w: (g_sWidth - 500) / 2 + 420, h: 245, visibility: `hidden` },
+        scoreDetail: { x: 20, y: 85, w: (g_sWidth - 500) / 2 + 420, h: 245, visibility: `hidden`, pointerEvents: C_DIS_AUTO },
         detailObj: { w: (g_sWidth - 500) / 2 + 420, h: 230, visibility: `hidden` },
-        keyconSprite: { y: 105, h: g_sHeight - 105, overflow: `auto` },
+        keyconSprite: { y: 105, h: g_sHeight - 105, overflow: C_DIS_AUTO },
         loader: { y: g_sHeight - 10, h: 10, backgroundColor: `#333333` },
         playDataWindow: { x: g_sWidth / 2 - 225, y: 70, w: 450, h: 110 },
         resultWindow: { x: g_sWidth / 2 - 200, y: 185, w: 400, h: 210 },
+        gaugeTransition: { x: g_sWidth / 2 - g_limitObj.gaugeTransitionWidth / 2, y: 185, w: g_limitObj.gaugeTransitionWidth, h: g_limitObj.gaugeTransitionHeight, visibility: `hidden` },
     });
 
     Object.assign(g_lblPosObj, {
@@ -217,11 +246,116 @@ const updateWindowSiz = () => {
         },
         lblComment: {
             x: g_btnX(), y: 70, w: g_btnWidth(), h: g_sHeight - 180, siz: g_limitObj.difSelectorSiz, align: C_ALIGN_LEFT,
-            overflow: `auto`, background: `#222222`, color: `#cccccc`, display: C_DIS_NONE,
+            overflow: C_DIS_AUTO, background: `#222222`, color: `#cccccc`, display: C_DIS_NONE,
             whiteSpace: `normal`,
         },
         btnComment: {
             x: g_btnX(1) - 160, y: (g_sHeight / 2) + 150, w: 140, h: 50, siz: 20, border: `solid 1px #999999`,
+        },
+
+        lblMusicSelect: {
+            x: g_btnX(1 / 4), y: g_sHeight / 2 - 90,
+            w: g_btnWidth(5 / 8), h: 206, siz: 14, border: `solid 1px #006666`,
+            align: C_ALIGN_LEFT, padding: `0 10px`, display: `inline-block`,
+        },
+        lblMusicSelectDetail: {
+            x: g_btnX(1 / 4), y: g_sHeight / 2 - 45,
+            w: g_btnWidth(5 / 8), h: 35, siz: 14,
+            align: C_ALIGN_LEFT, padding: `0 10px`, display: `inline-block`,
+            pointerEvents: C_DIS_INHERIT,
+        },
+        btnStart_music: {
+            x: g_btnX(27 / 32), y: g_sHeight / 2 - 90,
+            w: g_btnWidth(1 / 16), h: 206, siz: 24, padding: `0 10px`,
+            border: `solid 1px #006666`,
+        },
+        btnMusicSelectPrev: {
+            x: g_btnX(1 / 4), y: g_sHeight / 2 - 134,
+            w: 30, h: 40, siz: 20, padding: `0 10px`,
+            border: `solid 1px #666600`,
+        },
+        btnMusicSelectNext: {
+            x: g_btnX(1 / 4), y: g_sHeight / 2 + 120,
+            w: 30, h: 40, siz: 20, padding: `0 10px`,
+            border: `solid 1px #666600`,
+        },
+        btnMusicSelectRandom: {
+            x: g_btnX(1 / 4) - 80, y: g_sHeight / 2 - 134,
+            w: 55, h: 40, siz: 14, padding: `0 10px`,
+            border: `solid 1px #666666`,
+        },
+        btnKeyTitle: {
+            y: 0, w: 35, h: 16, siz: 14,
+            border: `solid 1px #666666`,
+        },
+        lblMusicCnt: {
+            x: g_btnX(1 / 4) - 80, y: g_sHeight / 2 - 90,
+            w: 80, h: 20, siz: 14, align: C_ALIGN_CENTER,
+        },
+        lblComment_music: {
+            x: g_btnX(1 / 4) + 10, y: g_sHeight / 2 + 15, w: g_btnWidth(7 / 12) - 5, h: 100,
+            siz: g_limitObj.difSelectorSiz, align: C_ALIGN_LEFT,
+            overflow: C_DIS_AUTO, whiteSpace: `normal`,
+        },
+        btnBgmMute: {
+            x: g_btnX() + 90, y: g_sHeight - 105, w: 40, h: 35, siz: 30,
+        },
+        lblBgmVolume: {
+            x: g_btnX(), y: g_sHeight - 85, w: g_btnWidth(1 / 4), h: 20, siz: 12, align: C_ALIGN_LEFT,
+        },
+        btnBgmVolume: {
+            x: g_btnX() + 20, y: g_sHeight - 70, w: g_btnWidth(1 / 4) - 40, h: 20, siz: 14,
+        },
+        btnBgmVolumeL: {
+            x: g_btnX(), y: g_sHeight - 70, w: 20, h: 20, siz: 12,
+        },
+        btnBgmVolumeR: {
+            x: g_btnX() + g_btnWidth(1 / 4) - 20, y: g_sHeight - 70, w: 20, h: 20, siz: 12,
+        },
+
+        /** データ管理 */
+        btnResetBack: {
+            x: g_btnX(), y: g_sHeight - 20, w: g_btnWidth(1 / 4), h: 16, siz: 12,
+        },
+        btnPrecond: {
+            x: g_btnX(1 / 4), y: g_sHeight - 20, w: g_btnWidth(1 / 4), h: 16, siz: 12,
+            visibility: g_isDebug ? `visible` : `hidden`,
+        },
+        btnSafeMode: {
+            x: g_btnX(), siz: 18,
+        },
+        dataDelMsg: {
+            x: 0, y: 65, w: g_sWidth, h: 20, siz: g_limitObj.mainSiz,
+        },
+        btnResetN: {
+            x: g_btnX(1 / 3), y: g_sHeight - 100, w: g_btnWidth(1 / 3), h: g_limitObj.btnHeight,
+        },
+        btnUndo: {
+            x: g_btnX(2 / 3), y: g_sHeight - 100, w: g_btnWidth(1 / 3), h: g_limitObj.btnHeight,
+        },
+        lblWorkDataView: {
+            x: g_btnX(1 / 3) + 10, y: 100, w: g_btnWidth(7 / 12), h: g_sHeight / 4, siz: 12, align: C_ALIGN_LEFT,
+            overflow: C_DIS_AUTO, background: `#222222`, color: `#cccccc`,
+            whiteSpace: `nowrap`,
+        },
+        lblKeyDataView: {
+            x: g_btnX(1 / 3) + 10, y: 100 + g_sHeight / 4 + 10, w: g_btnWidth(7 / 12), h: g_sHeight * 3 / 4 - 215, siz: 12, align: C_ALIGN_LEFT,
+            overflow: C_DIS_AUTO, background: `#222222`, color: `#cccccc`,
+            whiteSpace: `nowrap`,
+        },
+        lblPrecondView: {
+            x: g_btnX(), y: 110, w: g_btnWidth(1), h: g_sHeight - 140, siz: 12, align: C_ALIGN_LEFT,
+            overflow: C_DIS_AUTO, background: `#222222`, color: `#cccccc`,
+            whiteSpace: `nowrap`,
+        },
+        btnWorkStorage: {
+            x: g_btnX(1) - 140, y: 100, w: 70, h: 20, siz: 16,
+        },
+        btnKeyStorage: {
+            x: g_btnX(1) - 140, y: 100 + g_sHeight / 4 + 10, w: 70, h: 20, siz: 16,
+        },
+        btnPrecondView: {
+            x: g_btnX(1) - 90, y: 110, w: 70, h: 20, siz: 16,
         },
 
         /** 設定画面 */
@@ -241,12 +375,39 @@ const updateWindowSiz = () => {
             x: g_btnX(), y: 5, w: g_btnWidth(1 / 5), h: 16, siz: 12,
             title: g_msgObj.dataSave, borderStyle: `solid`,
         },
+        btnSettingSummary: {
+            x: g_btnX(), y: g_sHeight - 200, w: g_limitObj.setMiniWidth / 2, h: 100,
+        },
+        lblSummaryHeader: {
+            x: 0, y: 0, w: 150, h: 20, siz: 16, align: C_ALIGN_LEFT,
+        },
+        lblSummaryEnvironment: {
+            x: 150, y: 5, w: g_btnWidth() - 200, h: 20, siz: 12, align: C_ALIGN_LEFT,
+        },
+        lblSummaryDifInfo: {
+            x: 0, y: 20, w: g_btnWidth() - 50, h: 20, siz: 12, align: C_ALIGN_LEFT,
+        },
+        lblSummaryPlaystyleInfo: {
+            x: 0, y: 35, w: g_btnWidth() - 50, h: 20, siz: 12, align: C_ALIGN_LEFT,
+        },
+        lblSummaryDisplayInfo: {
+            x: 0, y: 50, w: g_btnWidth() - 50, h: 20, siz: 12, align: C_ALIGN_LEFT,
+        },
+        lblSummaryDisplay2Info: {
+            x: 0, y: 65, w: g_btnWidth() - 50, h: 20, siz: 12, align: C_ALIGN_LEFT,
+        },
 
+        lblMusicInfo: {
+            x: g_btnX(1 / 4), y: 0, w: g_btnWidth(3 / 4), h: 20, align: C_ALIGN_RIGHT
+        },
         lblBaseSpd: {
-            x: g_sWidth - 100, y: 0, w: 100, h: 20, siz: 14,
+            x: g_sWidth - 100, y: 11, w: 100, h: 20, siz: 13, align: C_ALIGN_RIGHT
         },
         btnReverse: {
             x: 160, y: 0, w: 90, h: 21, siz: g_limitObj.difSelectorSiz, borderStyle: `solid`,
+        },
+        lblExcessive: {
+            x: 5, y: 27, w: 90, h: 18, siz: 12,
         },
         btnExcessive: {
             x: 5, y: 25, w: 90, h: 21, siz: g_limitObj.difSelectorSiz, borderStyle: `solid`,
@@ -259,7 +420,7 @@ const updateWindowSiz = () => {
             x: g_limitObj.setLblLeft, y: 0,
         },
         lblFadeinBar: {
-            x: g_limitObj.setLblLeft, y: 0,
+            x: g_limitObj.setLblLeft, y: 0, type: `range`,
         },
 
         /** 設定: 譜面明細子画面 */
@@ -289,7 +450,7 @@ const updateWindowSiz = () => {
             x: 130, y: 70, w: 200, h: 90,
         },
         dataArrowInfo2: {
-            x: 140, y: 70, w: (g_sWidth - 500) / 2 + 275, h: 150, overflow: `auto`,
+            x: 140, y: 70, w: (g_sWidth - 500) / 2 + 275, h: 150, overflow: C_DIS_AUTO,
         },
         lnkDifInfo: {
             w: g_limitObj.difCoverWidth, h: 20, borderStyle: `solid`,
@@ -299,6 +460,33 @@ const updateWindowSiz = () => {
         },
         lblHRank: {
             x: 290, y: 145, w: 120, h: 20, siz: 50, align: C_ALIGN_CENTER,
+        },
+        lblSpdHeader: {
+            x: 5, y: 180, w: 100, h: 20, siz: g_limitObj.difSelectorSiz, align: C_ALIGN_LEFT,
+        },
+        lblSpdBase: {
+            x: 0, y: 200, w: 40, h: 20, siz: 11.5, fontWeight: `bold`,
+        },
+        lblSpdOverall: {
+            x: 40, y: 200, w: 40, h: 20, siz: 11.5,
+            color: g_graphColorObj.speedChara, fontWeight: `bold`,
+        },
+        lblSpdBoost: {
+            x: 80, y: 200, w: 40, h: 20, siz: 11.5,
+            color: g_graphColorObj.boostChara, fontWeight: `bold`,
+        },
+        lblSpdTotal: {
+            x: 5, y: 215, w: 100, h: 20, siz: g_limitObj.difSelectorSiz,
+            align: C_ALIGN_LEFT, fontWeight: `bold`,
+        },
+        lblSpdFrame: {
+            x: 70, y: 218, w: 50, h: 20, siz: 12, fontWeight: `bold`,
+        },
+        btnSpdCursorL: {
+            x: 85, y: 180, w: 15, h: 20, siz: 12,
+        },
+        btnSpdCursorR: {
+            x: 100, y: 180, w: 15, h: 20, siz: 12,
         },
 
         /** ディスプレイ画面 */
@@ -312,7 +500,7 @@ const updateWindowSiz = () => {
             x: g_limitObj.setLblLeft, y: 20, siz: 12, align: C_ALIGN_CENTER,
         },
         lblAppearanceBar: {
-            x: g_limitObj.setLblLeft, y: 15,
+            x: g_limitObj.setLblLeft, y: 15, type: `range`,
         },
         lnkLockBtn: {
             x: g_limitObj.setLblLeft + g_limitObj.setLblWidth - 40, y: 0, w: 40, h: g_limitObj.setLblHeight, siz: 12,
@@ -321,11 +509,10 @@ const updateWindowSiz = () => {
 
         /** キーコンフィグ画面 */
         scKcMsg: {
-            x: g_btnX(), y: g_sHeight - 50, w: g_btnWidth(), h: 20,
+            x: g_btnX(), y: g_sHeight - 50, w: g_btnWidth(1 / 4), h: 20,
         },
         kcMsg: {
             x: g_btnX(), y: g_sHeight - 33, w: g_btnWidth(), h: 20, siz: g_limitObj.mainSiz,
-            pointerEvents: `none`,
         },
         kcDesc: {
             x: g_btnX() + 50, y: 68, w: g_btnWidth() - 100, h: 20,
@@ -380,6 +567,14 @@ const updateWindowSiz = () => {
             w: g_btnWidth(1 / 3), h: g_limitObj.btnHeight / 2, siz: g_limitObj.btnSiz * 2 / 3,
             title: g_msgObj.kcReset,
         },
+        scTitleBack: {
+            x: g_btnX(1 / 4) + 20, y: g_sHeight - 50, align: C_ALIGN_LEFT,
+            w: g_btnWidth(5 / 12) - 40, h: C_KYC_REPHEIGHT, siz: getFontSize2(getScMsg.TitleBack(), g_btnWidth(5 / 12) - 40, { maxSiz: 13 }),
+        },
+        scRetry: {
+            x: g_btnX(5 / 8) + 20, y: g_sHeight - 50, align: C_ALIGN_LEFT,
+            w: g_btnWidth(5 / 12) - 40, h: C_KYC_REPHEIGHT, siz: getFontSize2(getScMsg.Retry(), g_btnWidth(5 / 12) - 40, getBasicFont(), { maxSiz: 13 }),
+        },
 
         /** メイン画面 */
         stepHit: {
@@ -411,7 +606,7 @@ const updateWindowSiz = () => {
         },
         lblWord: {
             x: 100, w: g_headerObj.playingWidth - 200, h: 50,
-            siz: g_limitObj.mainSiz, align: C_ALIGN_LEFT, display: `block`, margin: `auto`,
+            siz: g_limitObj.mainSiz, align: C_ALIGN_LEFT, display: `block`, margin: C_DIS_AUTO,
         },
         finishView: {
             x: g_headerObj.playingWidth / 2 - 150, y: g_headerObj.playingHeight / 2 - 50, w: 300, h: 20, siz: 50,
@@ -469,13 +664,13 @@ const updateWindowSiz = () => {
 const g_windowAlign = {
     left: () => {
         $id(`canvas-frame`).marginLeft = `0px`;
-        $id(`canvas-frame`).marginRight = `auto`;
+        $id(`canvas-frame`).marginRight = C_DIS_AUTO;
     },
     center: () => {
-        $id(`canvas-frame`).margin = `auto`;
+        $id(`canvas-frame`).margin = C_DIS_AUTO;
     },
     right: () => {
-        $id(`canvas-frame`).marginLeft = `auto`;
+        $id(`canvas-frame`).marginLeft = C_DIS_AUTO;
         $id(`canvas-frame`).marginRight = `0px`;
     },
 };
@@ -514,6 +709,13 @@ const C_DIR_SKIN = `../skin/`;
 
 // カレントディレクトリマーク
 const C_MRK_CURRENT_DIRECTORY = `(..)`;
+
+// デフォルトセット（リモート取得対象）
+const g_defaultSets = {
+    skinType: [`default`, `light`, `skyblue`],
+    imgType: [``, `classic`, `classic-thin`, `note`],
+    imgList: [],
+};
 
 /**
  * カスタム画像セットの設定（サーバ上の場合のみ有効）
@@ -609,6 +811,7 @@ const reloadImgObj = () => {
     g_imgObj.titleArrow = C_IMG_TITLE_ARROW;
 };
 reloadImgObj();
+Object.keys(g_imgObj).forEach(key => g_defaultSets.imgList.push(key));
 
 // g_imgObjのうち、初期読込するリスト
 const g_imgInitList = [
@@ -627,7 +830,9 @@ const g_typeLists = {
     frzColor: [`Normal`, `NormalBar`, `Hit`, `HitBar`, `NormalShadow`, `HitShadow`],
     dataList: [
         `Arrow`, `FrzArrow`, `FrzLength`,
-        `Color`, `ColorCd`, `ColorShadow`, `ColorShadowCd`, `ScrollchArrow`, `ScrollchStep`, `ScrollchArrowDir`, `ScrollchStepDir`,
+        `Color`, `ColorCd`, `ColorShadow`, `ColorShadowCd`,
+        `ScrollchArrow`, `ScrollchStep`, `ScrollchArrowDir`, `ScrollchStepDir`,
+        `ScrollchArrowLayerGroup`, `ScrollchStepLayerGroup`, `ScrollchArrowLayerTrans`, `ScrollchStepLayerTrans`,
         `FColorNormal`, `FColorNormalCd`, `FColorNormalBar`, `FColorNormalBarCd`,
         `FColorNormalShadow`, `FColorNormalShadowCd`,
         `FColorHit`, `FColorHitCd`, `FColorHitBar`, `FColorHitBarCd`,
@@ -717,6 +922,30 @@ const g_escapeStr = {
         [`all[]`, `sumData(g_detailObj.arrowCnt[{0}]) + sumData(g_detailObj.frzCnt[{0}])`],
         [`maxlife[]`, `g_headerObj.maxLifeVal`],
     ],
+    editorKey: [
+        [`ArrowLeft`, `KeyU`],
+        [`ArrowDown`, `KeyI`],
+        [`ArrowUp`, `Digit8`],
+        [`ArrowRight`, `KeyO`],
+        [`Space`, `KeyG`],
+        [`KeyB`, `KeyH`],
+        [`Enter`, `BackSlash`],
+        [`ShiftLeft`, `KeyZ`],
+        [`ShiftRight`, `Slash`],
+        [`Tab`, `KeyQ`],
+    ]
+};
+
+/** 絵文字管理用 */
+const g_emojiObj = {
+    checkMark: `&#x2714;`,    // チェックマーク (check mark)
+    crossMark: `&#x274c;`,    // バツ (cross mark)
+    muted: `&#x1f507;`,       // 無音のスピーカー (muted speaker)
+    speaker: `&#x1f50a;`,     // 音量大のスピーカー (speaker high volume)
+    shield: `&#x1f6e1;`,      // 盾 (shield)
+    memo: `&#x1f4dd;`,        // メモ (memo)
+    musical: `&#x1f3b5;`,     // 音符 (musical note)
+    camera: `&#x1f4f7;`,      // カメラ (camera)
 };
 
 /** 設定・オプション画面用共通 */
@@ -729,7 +958,12 @@ const g_graphColorObj = {
     default3Push: `#555555cc`,
 
     speed: `#cc3333`,
+    speedChara: `#cc6666`,
     boost: `#999900`,
+    boostChara: `#999966`,
+
+    clear: `#33cc33`,
+    failed: `#cc3333`,
 };
 
 const g_settingBtnObj = {
@@ -779,6 +1013,12 @@ const g_judgPosObj = {
     ii: 0, shakin: 1, matari: 2, shobon: 3, uwan: 4,
     kita: 0, sfsf: 1, iknai: 2,
 };
+const g_judgRanges = {
+    'Normal': [[2, 4, 6, 8, 16], [2, 4, 8]],
+    'Narrow': [[2, 3, 4, 8, 16], [2, 4, 8]],
+    'Hard': [[1, 3, 5, 8, 16], [1, 3, 8]],
+    'ExHard': [[1, 2, 3, 8, 16], [1, 2, 8]],
+};
 
 const C_CLR_DUMMY = `#777777`;
 
@@ -806,6 +1046,8 @@ const g_resultObj = {
     excessive: 0,
 
     spState: ``,
+
+    gaugeTransition: [],
 };
 
 const C_RLT_BRACKET_L = 210;
@@ -851,6 +1093,14 @@ let C_WOD_FRAME = 30;
 
 // 譜面データ持ち回り用
 const g_stateObj = {
+    keyInitial: false,
+    bgmVolume: 50,
+    bgmLooped: null,
+    bgmFadeIn: null,
+    bgmFadeOut: null,
+    bgmTimeupdateEvtId: null,
+    bgmMuteFlg: false,
+
     dosDivideFlg: false,
     scoreLockFlg: false,
     scoreId: 0,
@@ -863,10 +1113,14 @@ const g_stateObj = {
     autoPlay: C_FLG_OFF,
     autoAll: C_FLG_OFF,
     gauge: `Normal`,
+    excessive: C_FLG_OFF,
+    excessiveChgFlg: false,
+    excessiveScoreId: 0,
     adjustment: 0,
     hitPosition: 0,
     fadein: 0,
     volume: 100,
+
     lifeRcv: 2,
     lifeDmg: 7,
     lifeMode: `Border`,
@@ -879,6 +1133,7 @@ const g_stateObj = {
     dataSaveFlg: true,
     scoreDetailViewFlg: false,
     scoreDetail: `Speed`,
+    settingSummaryVisible: false,
 
     d_stepzone: C_FLG_ON,
     d_judgment: C_FLG_ON,
@@ -898,8 +1153,26 @@ const g_stateObj = {
     filterLock: C_FLG_OFF,
     opacity: 100,
 
+    playWindow: `Default`,
+    stepArea: `Default`,
+    frzReturn: C_FLG_OFF,
+    shaking: C_FLG_OFF,
+    effect: C_FLG_OFF,
+    camoufrage: C_FLG_OFF,
+    swapping: C_FLG_OFF,
+    judgRange: `Normal`,
+    autoRetry: C_FLG_OFF,
+
     rotateEnabled: true,
     flatStepHeight: C_ARW_WIDTH,
+
+    dm_environment: C_FLG_OFF,
+    dm_highscores: C_FLG_OFF,
+    dm_customKey: C_FLG_OFF,
+    dm_others: C_FLG_OFF,
+
+    layerNum: 2,    // オプションを加味した実際のレイヤー数
+    layerNumDf: 2,  // 基準レイヤー数
 };
 
 const C_VAL_MAXLIFE = 1000;
@@ -948,12 +1221,34 @@ const makeSpeedList = (_minSpd, _maxSpd) => [...Array((_maxSpd - _minSpd) * 20 +
 
 // 設定系全般管理
 const g_settings = {
+
+    musicIdxNum: 0,
+    musicLoopNum: 0,
+    dataMgtNum: {
+        environment: 0,
+        highscores: 0,
+        customKey: 0,
+        others: 0,
+    },
+    environments: [`adjustment`, `volume`, `colorType`, `appearance`, `opacity`, `hitPosition`],
+    keyStorages: [`reverse`, `keyCtrl`, `keyCtrlPtn`, `shuffle`, `color`, `stepRtn`],
+    colorStorages: [`setColor`, `setShadowColor`, `frzColor`, `frzShadowColor`],
+
+    mSelectableTerms: 3,
+
     speeds: makeSpeedList(C_MIN_SPEED, C_MAX_SPEED),
     speedNum: 0,
     speedTerms: [20, 5, 1],
 
-    motions: [C_FLG_OFF, `Boost`, `Hi-Boost`, `Brake`, `Compress`, `Fountain`],
+    motions: [C_FLG_OFF, `Boost`, `Hi-Boost`, `Brake`, `Compress`, `Fountain`, `Magnet`],
     motionNum: 0,
+
+    // 移動距離倍率 (Compress, Fountain, Magnetのみ倍率を変更)
+    motionDistRates: [1, 1, 1, 1, 1.25, 3, 1.5],
+    // 速度が逆転するときのアルファ値 (g_motionAlphaFuncで使用)
+    motionAlpha: 0.625,
+    // 移動距離倍率の補正を行う最小の初期倍速
+    motionBoostFactorMinSpd: 5,
 
     reverses: [C_FLG_OFF, C_FLG_ON],
     reverseNum: 0,
@@ -983,6 +1278,8 @@ const g_settings = {
     hitPositionTerms: [50, 10],
 
     volumes: [0, 0.5, 1, 2, 5, 10, 25, 50, 75, 100],
+    volumeNum: 0,
+    bgmVolumeNum: 0,
 
     appearances: [`Visible`, `Hidden`, `Hidden+`, `Sudden`, `Sudden+`, `Hid&Sud+`],
     appearanceNum: 0,
@@ -991,6 +1288,7 @@ const g_settings = {
     filterLockNum: 0,
 
     opacitys: [10, 25, 50, 75, 100],
+    opacityNum: 0,
 
     scoreDetailDefs: [`Density`, `Speed`, `ToolDif`, `HighScore`],
     scoreDetails: [],
@@ -1005,6 +1303,7 @@ const g_settings = {
 
     // Display設定の拡張リスト
     d_stepZones: [`FlatBar`],
+    d_speeds: [`Extreme`, `Soft`],
 
     displayNum: {
         stepZone: 0,
@@ -1020,62 +1319,505 @@ const g_settings = {
         arrowEffect: 0,
         special: 0,
     },
+
+    playWindows: [`Default`, `Stairs`, `R-Stairs`, `Slope`, `R-Slope`, `Distorted`, `R-Distorted`, `SideScroll`, `R-SideScroll`],
+    playWindowNum: 0,
+
+    stepAreas: [`Default`, `Halfway`, `2Step`, `Mismatched`, `R-Mismatched`, `X-Flower`, `Alt-Crossing`],
+    stepAreaLayers: [`2Step`, `Mismatched`, `R-Mismatched`, `X-Flower`, `Alt-Crossing`],
+    stepAreaNum: 0,
+
+    frzReturns: [C_FLG_OFF, `X-Axis`, `Y-Axis`, `Z-Axis`, `Random`, `XY-Axis`, `XZ-Axis`, `YZ-Axis`, `Random+`],
+    frzReturnNum: 0,
+
+    shakings: [C_FLG_OFF, `Horizontal`, `Vertical`, `X-Horizontal`, `X-Vertical`, `Drunk`, `S-Drunk`],
+    shakingNum: 0,
+
+    effects: [C_FLG_OFF, `Dizzy`, `Spin`, `Wave`, `Storm`, `Blinking`, `Squids`],
+    effectNum: 0,
+
+    camoufrages: [C_FLG_OFF, `Color`, `Arrow`, `ALL`],
+    camoufrageNum: 0,
+
+    swappings: [C_FLG_OFF, `Mirror`, `X-Mirror`],
+    swappingNum: 0,
+
+    judgRanges: [`Normal`, `Narrow`, `Hard`, `ExHard`],
+    judgRangeNum: 0,
+
+    autoRetrys: [C_FLG_OFF, `Miss`, `Matari(Good)`, `Shakin(Great)`, `Fast/Slow`],
+    autoRetryNum: 0,
+
+    settingWindows: [optionInit, settingsDisplayInit, exSettingInit],
+    settingWindowNum: 0,
+
+    preconditions: [`g_rootObj`, `g_headerObj`, `g_keyObj`, `g_scoreObj`, `g_workObj`,
+        `g_detailObj`, `g_stateObj`, `g_attrObj`, `g_editorTmp`, `g_editorTmp2`],
+    preconditionNum: 0,
+    preconditionNumSub: 0,
 };
 
 g_settings.volumeNum = g_settings.volumes.length - 1;
+g_settings.bgmVolumeNum = roundZero(g_settings.volumes.findIndex(v => v === g_stateObj.bgmVolume));
 g_settings.opacityNum = g_settings.opacitys.length - 1;
 
 /**
  * 設定画面間移動
  */
-const g_jumpSettingWindow = {
-    option: () => settingsDisplayInit(),
-    difSelector: () => settingsDisplayInit(),
-    settingsDisplay: () => optionInit(),
+const g_moveSettingWindow = (_changePageFlg = true, _direction = 1) => {
+    if (_changePageFlg) {
+        g_settings.settingWindowNum = nextPos(g_settings.settingWindowNum, _direction, g_settings.settingWindows.length);
+    }
+    g_settings.settingWindows[g_settings.settingWindowNum]();
+    updateSettingSummary();
 };
+
+/**
+ * transform, 座標管理
+ */
+const g_transforms = {};
+const g_posXs = {};
+const g_posYs = {};
+
+/**
+ * idごとのtransformを追加・変更
+ * - _transformIdごとに transform情報を管理
+ * @param {string} _id 
+ * @param {string} _transformId
+ * @param {string} _transform 
+ */
+const addTransform = (_id, _transformId, _transform) => {
+    if (g_transforms[_id] === undefined) {
+        g_transforms[_id] = new Map();
+    }
+    g_transforms[_id].set(_transformId, _transform);
+    $id(_id).transform = Array.from(g_transforms[_id].values()).join(` `);
+};
+
+/**
+ * idごとのtransformを追加（一時）
+ * @param {string} _id 
+ * @param {string} _transform 
+ */
+const addTempTransform = (_id, _transform) => {
+    $id(_id).transform = ($id(_id).transform || ``) + ` ` + _transform;
+};
+
+/**
+ * transformの初期化
+ */
+const resetTransform = () => {
+    Object.keys(g_transforms).forEach(_id => delete g_transforms[_id]);
+};
+
+/**
+ * id, transformIdに合致するtransform情報の取得
+ * @param {string} _id 
+ * @param {string} _transformId 
+ * @returns {string}
+ */
+const getTransform = (_id, _transformId) => {
+    return g_transforms[_id]?.[_transformId] || ``;
+};
+
+/**
+ * 座標加算処理 (X座標)
+ * @param {string} _id 
+ * @param {string} _typeId 
+ * @param {number} [_x=0] 
+ * @param {boolean} [_overwrite=false] 
+ */
+const addX = (_id, _typeId, _x = 0, _overwrite = false) => {
+    if (_overwrite) {
+        delete g_posXs?.[_id];
+    }
+    if (g_posXs[_id] === undefined) {
+        g_posXs[_id] = new Map();
+    }
+    if (g_posXs[_id].get(_typeId) !== _x) {
+        g_posXs[_id].set(_typeId, _x);
+        $id(_id).left = `${sumData(Array.from(g_posXs[_id].values()))}px`;
+    }
+};
+
+/**
+ * 座標加算処理 (Y座標)
+ * @param {string} _id 
+ * @param {string} _typeId 
+ * @param {number} [_y=0] 
+ * @param {boolean} [_overwrite=false] 
+ */
+const addY = (_id, _typeId, _y = 0, _overwrite = false) => {
+    if (_overwrite) {
+        delete g_posYs?.[_id];
+    }
+    if (g_posYs[_id] === undefined) {
+        g_posYs[_id] = new Map();
+    }
+    if (g_posYs[_id].get(_typeId) !== _y) {
+        g_posYs[_id].set(_typeId, _y);
+        $id(_id).top = `${sumData(Array.from(g_posYs[_id].values()))}px`;
+    }
+};
+
+/**
+ * 座標リセット処理（X座標）
+ * @param {string} _id 
+ * @param {string} _typeId 
+ */
+const delX = (_id, _typeId) => {
+    g_posXs[_id]?.delete(_typeId);
+    $id(_id).left = `${sumData(Array.from(g_posXs[_id].values()))}px`;
+};
+
+/**
+ * 座標リセット処理（Y座標）
+ * @param {string} _id 
+ * @param {string} _typeId 
+ */
+const delY = (_id, _typeId) => {
+    g_posYs[_id]?.delete(_typeId);
+    $id(_id).top = `${sumData(Array.from(g_posYs[_id].values()))}px`;
+};
+
+/**
+ * 座標加算処理
+ * @param {string} _id 
+ * @param {string} _typeId 
+ * @param {number} _x 
+ * @param {number} _y 
+ * @param {boolean} [_overwrite=false]
+ */
+const addXY = (_id, _typeId, _x = 0, _y = 0, _overwrite = false) => {
+    addX(_id, _typeId, _x, _overwrite);
+    addY(_id, _typeId, _y, _overwrite);
+};
+
+/**
+ * 座標リセット処理
+ * @param {string} _id 
+ * @param {string} _typeId 
+ */
+const delXY = (_id, _typeId) => {
+    delX(_id, _typeId);
+    delY(_id, _typeId);
+};
+
+/**
+ * 座標位置情報の初期化
+ */
+const resetXY = () => {
+    Object.keys(g_posXs).forEach(_id => delete g_posXs[_id]);
+    Object.keys(g_posYs).forEach(_id => delete g_posYs[_id]);
+};
+
+/**
+ * データ消去用管理関数
+ */
+const g_resetFunc = new Map([
+    ['highscores', () => {
+        delete g_localStorageMgt.highscores;
+        g_localStorageMgt.highscores = {};
+    }],
+    ['environment', () => g_settings.environments.forEach(key => delete g_localStorageMgt[key])],
+    [`customKey`, () => Object.keys(g_localStorageMgt)
+        .filter(key => listMatching(key, g_settings.keyStorages.concat(g_settings.colorStorages), { prefix: `^` }))
+        .forEach(key => delete g_localStorageMgt[key])],
+    [`others`, () => Object.keys(g_localStorageMgt)
+        .filter(key => !g_settings.environments.includes(key) && key !== `highscores` &&
+            !listMatching(key, g_settings.keyStorages.concat(g_settings.colorStorages), { prefix: `^` }))
+        .forEach(key => delete g_localStorageMgt[key])],
+]);
+
+/**
+ * ストレージ管理関数
+ */
+const g_storageFunc = new Map([
+
+    // 作品別のストレージ情報
+    ['workStorage', (_key) => {
+        const settingStorage = {};
+
+        // カスタムキー定義のストレージデータを表示から除去
+        Object.keys(g_localStorageMgt).filter(val => !listMatching(val, g_settings.keyStorages.concat(g_settings.colorStorages), { prefix: `^` }))
+            .forEach(val => settingStorage[val] = g_localStorageMgt[val]);
+        return settingStorage;
+    }],
+
+    // キー別のストレージ情報
+    ['keyStorage', (_key) => {
+        let keyStorage = sortObjectByKeys(parseStorageData(`danonicw-${_key}k`));
+        if (Object.keys(keyStorage).length === 0) {
+
+            // キー別の情報が見つからない場合は作品別の情報から検索
+            Object.keys(g_localStorageMgt).filter(val => val.endsWith(_key))
+                .forEach(val => keyStorage[val] = g_localStorageMgt[val]);
+            if (Object.keys(keyStorage).length === 0) {
+                return ``;
+            }
+        }
+        return keyStorage;
+    }],
+]);
 
 /**
  * シャッフル適用関数
  * @param {number} keyNum
  * @param {array} shuffleGroup
  */
-const g_shuffleFunc = {
-    'OFF': () => true,
-    'Mirror': (keyNum, shuffleGroup) => applyMirror(keyNum, shuffleGroup),
-    'X-Mirror': (keyNum, shuffleGroup) => applyMirror(keyNum, shuffleGroup, true),
-    'Turning': (keyNum, shuffleGroup) => applyTurning(keyNum, shuffleGroup),
-    'Random': (keyNum, shuffleGroup) => applyRandom(keyNum, shuffleGroup),
-    'Random+': keyNum => applyRandom(keyNum, [[...Array(keyNum).keys()]]),
-    'S-Random': (keyNum, shuffleGroup) => {
+const g_shuffleFunc = new Map([
+    ['OFF', () => true],
+    ['Mirror', (keyNum, shuffleGroup) => applyMirror(keyNum, shuffleGroup)],
+    ['X-Mirror', (keyNum, shuffleGroup) => applyMirror(keyNum, shuffleGroup, true)],
+    ['Turning', (keyNum, shuffleGroup) => applyTurning(keyNum, shuffleGroup)],
+    ['Random', (keyNum, shuffleGroup) => applyRandom(keyNum, shuffleGroup)],
+    ['Random+', keyNum => applyRandom(keyNum, [[...Array(keyNum).keys()]])],
+    ['S-Random', (keyNum, shuffleGroup) => {
         applySRandom(keyNum, shuffleGroup, `arrow`, `frz`);
         applySRandom(keyNum, shuffleGroup, `dummyArrow`, `dummyFrz`);
-    },
-    'S-Random+': keyNum => {
+    }],
+    ['S-Random+', keyNum => {
         applySRandom(keyNum, [[...Array(keyNum).keys()]], `arrow`, `frz`);
         applySRandom(keyNum, [[...Array(keyNum).keys()]], `dummyArrow`, `dummyFrz`);
-    },
-    'Scatter': (keyNum, shuffleGroup) => {
-        applySRandom(keyNum, shuffleGroup, `arrow`, `frz`);
-        applySRandom(keyNum, shuffleGroup, `dummyArrow`, `dummyFrz`);
-    },
-    'Scatter+': keyNum => {
-        applySRandom(keyNum, [[...Array(keyNum).keys()]], `arrow`, `frz`);
-        applySRandom(keyNum, [[...Array(keyNum).keys()]], `dummyArrow`, `dummyFrz`);
-    },
-};
+    }],
+    ['Scatter', (keyNum, shuffleGroup) => g_shuffleFunc.get(`S-Random`)(keyNum, shuffleGroup)],
+    ['Scatter+', keyNum => g_shuffleFunc.get(`S-Random+`)(keyNum)],
+]);
 
 /**
  * モーション適用関数
  * @param {array} frms フレーム別の速度設定用配列。配列の15がステップゾーン上、0～14は矢印の枠外管理用
  */
-const g_motionFunc = {
-    'OFF': _frms => _frms,
-    'Boost': _frms => getBoostTrace(_frms, 3),
-    'Hi-Boost': _frms => getBoostTrace(_frms, g_stateObj.speed * 2),
-    'Brake': _frms => getBrakeTrace(_frms),
-    'Compress': _frms => getBoostTrace(_frms, g_stateObj.speed * 5 / 8, -1),
-    'Fountain': _frms => getFountainTrace(_frms, g_stateObj.speed * 2),
+const g_motionFunc = new Map([
+    ['OFF', _frms => _frms],
+    ['Boost', _frms => getBoostTrace(_frms, 3)],
+    ['Hi-Boost', _frms => getBoostTrace(_frms, g_stateObj.speed * 2)],
+    ['Brake', _frms => getBrakeTrace(_frms)],
+    ['Compress', _frms => getBoostTrace(_frms, g_stateObj.speed * 5 / 8, -1)],
+    ['Fountain', _frms => getFountainTrace(_frms, g_stateObj.speed)],
+    ['Magnet', _frms => getFountainTrace(_frms, g_stateObj.speed * 2)],
+]);
+
+/**
+ * モーション適用中のアルファ値制御関数
+ * @param {object} _obj 対象オブジェクト
+ * @param {object} _property 対象オブジェクトのプロパティ情報 (g_attrObj[オブジェクト名])
+ */
+const g_motionAlphaFunc = new Map([
+    ['OFF', () => ``],
+    ['Boost', () => ``],
+    ['Hi-Boost', () => ``],
+    ['Brake', () => ``],
+    ['Compress', () => ``],
+    ['Fountain', (_obj, _property) => motionAlphaToggle(_obj, _property)],
+    ['Magnet', (_obj, _property) => motionAlphaToggle(_obj, _property)],
+]);
+
+const motionAlphaToggle = (_obj, _property) => {
+    const dir = (_property.y - _property.prevY) * _property.dir;
+    if (($id(_obj).opacity === ``) && dir > 0) {
+        $id(_obj).opacity = g_settings.motionAlpha;
+    } else if (Number($id(_obj).opacity) === g_settings.motionAlpha && dir < 0) {
+        $id(_obj).opacity = ``;
+    }
 };
+
+/**
+ * PlayWindow適用関数
+ */
+const g_changeStairs = (_rad) => `rotate(${_rad}deg)`;
+const g_changeSkew = (_rad) => `Skew(${_rad}deg, ${_rad}deg) scaleY(0.9)`;
+
+const g_playWindowFunc = new Map([
+    ['Default', () => ``],
+    ['Stairs', () => g_changeStairs(-8)],
+    ['R-Stairs', () => g_changeStairs(8)],
+    ['Slope', () => g_changeStairs(-g_slopeAngle())],
+    ['R-Slope', () => g_changeStairs(g_slopeAngle())],
+    ['Distorted', () => g_changeSkew(-15)],
+    ['R-Distorted', () => g_changeSkew(15)],
+    ['SideScroll', () => g_changeStairs(-90)],
+    ['R-SideScroll', () => g_changeStairs(90)],
+]);
+
+/**
+ * StepArea適用関数
+ */
+const g_arrowGroupSprite = [`stepSprite`, `arrowSprite`, `frzHitSprite`];
+const halfwayOffset = _j => (_j % 2 === 0 ? 1 : -1) * (g_headerObj.playingHeight / 2 - g_posObj.stepY + (g_posObj.stepYR - C_ARW_WIDTH) / 2);
+const getDirFromLayer = _j => (_j % 2 === 0 ? 1 : -1) * (_j < g_stateObj.layerNumDf ? 1 : -1);
+const g_stepAreaFunc = new Map([
+    ['Default', () => ``],
+    ['Halfway', () => {
+        g_arrowGroupSprite.forEach(sprite => {
+            for (let j = 0; j < g_stateObj.layerNum; j++) {
+                addY(`${sprite}${j}`, `stepArea`, halfwayOffset(j));
+            }
+        });
+    }],
+    ['Mismatched', () => {
+        for (let j = 0; j < g_stateObj.layerNum; j++) {
+            addTransform(`mainSprite${j}`, `stepArea`, `rotate(${getDirFromLayer(j) * -15}deg)`);
+        }
+        if (g_workObj.orgFlatFlg) {
+            g_arrowGroupSprite.forEach(sprite => {
+                for (let j = g_stateObj.layerNumDf; j < g_stateObj.layerNum; j++) {
+                    addY(`${sprite}${j}`, `stepArea`, halfwayOffset(j));
+                }
+            });
+        }
+    }],
+    ['R-Mismatched', () => {
+        for (let j = 0; j < g_stateObj.layerNum; j++) {
+            addTransform(`mainSprite${j}`, `stepArea`, `rotate(${getDirFromLayer(j) * 15}deg)`);
+        }
+        if (g_workObj.orgFlatFlg) {
+            g_arrowGroupSprite.forEach(sprite => {
+                for (let j = 0; j < g_stateObj.layerNumDf; j++) {
+                    addY(`${sprite}${j}`, `stepArea`, halfwayOffset(j));
+                }
+            });
+        }
+    }],
+    ['2Step', () => {
+        g_arrowGroupSprite.forEach(sprite => {
+            for (let j = g_stateObj.layerNumDf; j < g_stateObj.layerNum; j++) {
+                addY(`${sprite}${j}`, `stepArea`, halfwayOffset(j));
+            }
+        });
+    }],
+    ['X-Flower', () => {
+        for (let j = 0; j < g_stateObj.layerNum; j++) {
+            addTransform(`mainSprite${j}`, `stepArea`, `rotate(${getDirFromLayer(j) * -15}deg)`);
+        }
+    }],
+    ['Alt-Crossing', () => {
+        for (let j = 0; j < g_stateObj.layerNum; j++) {
+            addTransform(`mainSprite${j}`, `stepArea`, `rotate(${getDirFromLayer(j) * -10}deg) ` +
+                `translateX(${getDirFromLayer(j) * 20}px)`);
+        }
+    }],
+]);
+
+/**
+ * Shaking適用関数
+ */
+const getShakingDist = () => (Math.abs((g_scoreObj.baseFrame / 2) % 100 - 50) - 25);
+const g_shakingFunc = new Map([
+    ['OFF', () => true],
+    ['Horizontal', () => addX(`mainSprite`, `shaking`, getShakingDist())],
+    ['Vertical', () => addY(`mainSprite`, `shaking`, getShakingDist() / 2)],
+    ['X-Horizontal', () => {
+        for (let j = 0; j < g_stateObj.layerNum; j++) {
+            addX(`mainSprite${j}`, `shaking`, getDirFromLayer(j) * (4 / 3) * getShakingDist());
+        }
+    }],
+    ['X-Vertical', () => {
+        for (let j = 0; j < g_stateObj.layerNum; j++) {
+            addY(`mainSprite${j}`, `shaking`, getDirFromLayer(j) * getShakingDist());
+        }
+    }],
+    ['Drunk', () => {
+        const shakeX = g_posXs.mainSprite?.get(`shaking`) ?? 0;
+        const shakeY = g_posYs.mainSprite?.get(`shaking`) ?? 0;
+        if (shakeX === 0 && shakeY === 0) {
+            g_workObj.drunkXFlg = Math.random() < 0.5;
+            g_workObj.drunkYFlg = Math.random() < 0.5;
+        }
+        if (g_workObj.drunkXFlg) {
+            const deltaX = getShakingDist();
+            addX(`mainSprite`, `shaking`, deltaX);
+            addX(`infoSprite`, `shaking`, deltaX);
+            addX(`judgeSprite`, `shaking`, deltaX);
+        }
+        if (g_workObj.drunkYFlg) {
+            const deltaY = getShakingDist() / 2;
+            addY(`mainSprite`, `shaking`, deltaY);
+            addY(`infoSprite`, `shaking`, deltaY);
+            addY(`judgeSprite`, `shaking`, deltaY);
+        }
+    }],
+    ['S-Drunk', () => {
+        g_shakingFunc.get(`Drunk`)();
+        if (g_workObj.drunkXFlg) {
+            g_shakingFunc.get(`X-Vertical`)();
+        }
+        if (g_workObj.drunkYFlg) {
+            g_shakingFunc.get(`X-Horizontal`)();
+        }
+    }],
+]);
+
+/**
+ * ランダムな軸を返す補助関数
+ * @returns {string} 軸
+ */
+const g_getRandomAxis = () => {
+    const axes = [`X`, `Y`, `Z`];
+    return axes[Math.floor(Math.random() * axes.length)];
+};
+
+/**
+ * 最初に選んだ軸を除く、次の軸を返す補助関数
+ * @param {string} _primaryAxis 
+ * @returns {string} 軸
+ */
+const g_getSecondaryAxis = (_primaryAxis) => {
+    const remainingAxes = [`X`, `Y`, `Z`, undefined].filter(val => val !== _primaryAxis);
+    return remainingAxes[Math.floor(Math.random() * remainingAxes.length)];
+};
+
+/**
+ * FrzReturn適用関数
+ */
+const g_frzReturnFunc = new Map([
+    ['OFF', () => true],
+    ['X-Axis', () => [`X`]],
+    ['Y-Axis', () => [`Y`]],
+    ['Z-Axis', () => [`Z`]],
+    ['Random', () => g_getRandomAxis()],
+    ['XY-Axis', () => [`X`, `Y`]],
+    ['XZ-Axis', () => [`X`, `Z`]],
+    ['YZ-Axis', () => [`Y`, `Z`]],
+    ['Random+', () => {
+        const axis1 = g_getRandomAxis();
+        const axis2 = g_getSecondaryAxis(axis1);
+        return [axis1, axis2];
+    }],
+]);
+
+/**
+ * Effect適用関数
+ * @param {string} _arrowEffect 
+ * @param {string} _frzEffect 
+ * @param {string} _frzArrowEffect 
+ */
+const g_setEffect = (_arrowEffect, _frzEffect = ``, _frzArrowEffect = _arrowEffect) => {
+    const keyNum = g_keyObj[`${g_keyObj.defaultProp}${g_keyObj.currentKey}_${g_keyObj.currentPtn}`].length;
+    for (let j = 0; j < keyNum; j++) {
+        g_workObj.arrowCssMotions[j] = _arrowEffect;
+        if (hasVal(_frzEffect)) {
+            g_workObj.frzCssMotions[j] = _frzEffect;
+        }
+        if (hasVal(_frzArrowEffect)) {
+            g_workObj.frzArrowCssMotions[j] = _frzArrowEffect;
+        }
+    }
+};
+const g_effectFunc = new Map([
+    ['OFF', () => true],
+    ['Dizzy', () => g_setEffect(`effects-dizzy`)],
+    ['Spin', () => g_setEffect(`effects-spin`)],
+    ['Wave', () => g_setEffect(`effects-wave`, `effects-wave`)],
+    ['Storm', () => g_setEffect(`effects-storm`, `effects-storm`, ``)],
+    ['Blinking', () => g_setEffect(`effects-blinking`, `effects-blinking`, ``)],
+    ['Squids', () => g_setEffect(`effects-squids-arrow`, `effects-squids-frz`)],
+]);
+
+const g_sliderView = new Map([
+    ['fadein', _val => `${_val}${g_lblNameObj.percent}`],
+    ['appearance', _val => `${g_hidSudObj.distH[g_stateObj.appearance](_val)}`],
+]);
 
 const g_keycons = {
     configTypes: [`Main`, `Replaced`, `ALL`],
@@ -1118,14 +1860,16 @@ let g_storeSettings = [`adjustment`, `volume`, `appearance`, `opacity`, `hitPosi
 let g_storeSettingsEx = [`d_stepzone`, `d_judgment`, `d_fastslow`, `d_lifegauge`,
     `d_score`, `d_musicinfo`, `d_filterline`];
 
-let g_canDisabledSettings = [`motion`, `scroll`, `reverse`, `shuffle`, `autoPlay`, `gauge`, `excessive`, `appearance`];
+let g_canDisabledSettings = [`motion`, `scroll`, `reverse`, `shuffle`, `autoPlay`, `gauge`,
+    `excessive`, `appearance`, `playWindow`, `stepArea`, `frzReturn`, `shaking`, `effect`, `camoufrage`,
+    `swapping`, `judgRange`, `autoRetry`];
 
-const g_hidSudFunc = {
-    filterPos: _filterPos => `${_filterPos}${g_lblNameObj.percent}`,
-    range: () => `${Math.round(g_posObj.arrowHeight - g_posObj.stepY)}px`,
-    hidden: _filterPos => `${Math.min(Math.round(g_posObj.arrowHeight * (100 - _filterPos) / 100), g_posObj.arrowHeight - g_posObj.stepY)}`,
-    sudden: _filterPos => `${Math.max(Math.round(g_posObj.arrowHeight * (100 - _filterPos) / 100) - g_posObj.stepY, 0)}`,
-};
+const g_hidSudFunc = new Map([
+    ['filterPos', _filterPos => `${_filterPos}${g_lblNameObj.percent}`],
+    ['range', () => `${Math.round(g_posObj.arrowHeight - g_posObj.stepY)}px`],
+    ['hidden', _filterPos => `${Math.min(Math.round(g_posObj.arrowHeight * (100 - _filterPos) / 100), g_posObj.arrowHeight - g_posObj.stepY)}`],
+    ['sudden', _filterPos => `${Math.max(Math.round(g_posObj.arrowHeight * (100 - _filterPos) / 100) - g_posObj.stepY, 0)}`],
+]);
 
 const g_hidSudObj = {
     filterPos: 10,
@@ -1159,12 +1903,12 @@ const g_hidSudObj = {
     },
     distH: {
         'Visible': () => ``,
-        'Hidden': () => `${g_hidSudFunc.filterPos(50)} (${g_hidSudFunc.hidden(50)} / ${g_hidSudFunc.range()})`,
-        'Hidden+': (_filterPos) => `${g_hidSudFunc.filterPos(_filterPos)} (${g_hidSudFunc.hidden(_filterPos)} / ${g_hidSudFunc.range()})`,
-        'Sudden': () => `${g_hidSudFunc.filterPos(40)} (${g_hidSudFunc.sudden(40)} / ${g_hidSudFunc.range()})`,
-        'Sudden+': (_filterPos) => `${g_hidSudFunc.filterPos(_filterPos)} (${g_hidSudFunc.sudden(_filterPos)} / ${g_hidSudFunc.range()})`,
-        'Hid&Sud+': (_filterPos) => `${g_hidSudFunc.filterPos(_filterPos)} (${Math.max(g_hidSudFunc.sudden(_filterPos)
-            - (g_posObj.arrowHeight - g_posObj.stepY - g_hidSudFunc.hidden(_filterPos)), 0)} / ${g_hidSudFunc.range()})`,
+        'Hidden': () => `${g_hidSudFunc.get(`filterPos`)(50)} (${g_hidSudFunc.get(`hidden`)(50)} / ${g_hidSudFunc.get(`range`)()})`,
+        'Hidden+': (_filterPos) => `${g_hidSudFunc.get(`filterPos`)(_filterPos)} (${g_hidSudFunc.get(`hidden`)(_filterPos)} / ${g_hidSudFunc.get(`range`)()})`,
+        'Sudden': () => `${g_hidSudFunc.get(`filterPos`)(40)} (${g_hidSudFunc.get(`sudden`)(40)} / ${g_hidSudFunc.get(`range`)()})`,
+        'Sudden+': (_filterPos) => `${g_hidSudFunc.get(`filterPos`)(_filterPos)} (${g_hidSudFunc.get(`sudden`)(_filterPos)} / ${g_hidSudFunc.get(`range`)()})`,
+        'Hid&Sud+': (_filterPos) => `${g_hidSudFunc.get(`filterPos`)(_filterPos)} (${Math.max(g_hidSudFunc.get(`sudden`)(_filterPos)
+            - (g_posObj.arrowHeight - g_posObj.stepY - g_hidSudFunc.get(`hidden`)(_filterPos)), 0)} / ${g_hidSudFunc.get(`range`)()})`,
     },
 };
 
@@ -1500,6 +2244,46 @@ const g_shortcutObj = {
         F1: { id: `btnHelp`, reset: true },
         ControlLeft_KeyC: { id: `` },
         KeyC: { id: `btnComment` },
+        KeyD: { id: `btnReset` },
+        ArrowUp: { id: `btnMusicSelectPrev` },
+        ArrowDown: { id: `btnMusicSelectNext` },
+        ArrowLeft: { id: `btnBgmVolumeL` },
+        ArrowRight: { id: `btnBgmVolumeR` },
+        KeyM: { id: `btnBgmMute` },
+        KeyR: { id: `btnMusicSelectRandom` },
+    },
+    dataMgt: {
+        KeyE: { id: `btnEnvironment` },
+        KeyH: { id: `btnHighscores` },
+        KeyK: { id: `btnCustomKey` },
+        KeyO: { id: `btnOthers` },
+        Escape: { id: `btnBack` },
+        ShiftLeft_Tab: { id: `btnBack` },
+        ShiftRight_Tab: { id: `btnBack` },
+    },
+    precondition: {
+        Digit1: { id: `btnPrecond0` },
+        Digit2: { id: `btnPrecond1` },
+        Digit3: { id: `btnPrecond2` },
+        Digit4: { id: `btnPrecond3` },
+        Digit5: { id: `btnPrecond4` },
+        Digit6: { id: `btnPrecond5` },
+        Digit7: { id: `btnPrecond6` },
+        Digit8: { id: `btnPrecond7` },
+        Digit9: { id: `btnPrecond8` },
+        Digit0: { id: `btnPrecond9` },
+        Numpad1: { id: `btnPrecond0` },
+        Numpad2: { id: `btnPrecond1` },
+        Numpad3: { id: `btnPrecond2` },
+        Numpad4: { id: `btnPrecond3` },
+        Numpad5: { id: `btnPrecond4` },
+        Numpad6: { id: `btnPrecond5` },
+        Numpad7: { id: `btnPrecond6` },
+        Numpad8: { id: `btnPrecond7` },
+        Numpad9: { id: `btnPrecond8` },
+        Numpad0: { id: `btnPrecond9` },
+        Escape: { id: `btnBack` },
+        ShiftLeft_Tab: { id: `btnBack` },
     },
     option: {
         ShiftLeft_KeyD: { id: `lnkDifficultyL` },
@@ -1594,6 +2378,8 @@ const g_shortcutObj = {
         ControlLeft_KeyC: { id: `` },
         ControlRight_KeyC: { id: `` },
         KeyC: { id: `lnkHighScore`, reset: true },
+        Comma: { id: `btnSpdCursorL` },
+        Period: { id: `btnSpdCursorR` },
 
         Escape: { id: `btnBack` },
         Space: { id: `btnKeyConfig` },
@@ -1602,6 +2388,7 @@ const g_shortcutObj = {
         ShiftLeft_Tab: { id: `btnBack` },
         ShiftRight_Tab: { id: `btnBack` },
         Tab: { id: `btnDisplay` },
+        KeyU: { id: `btnSettingSummary` },
     },
     difSelector: {
         ShiftLeft_KeyD: { id: `lnkDifficultyL` },
@@ -1634,6 +2421,7 @@ const g_shortcutObj = {
         ShiftLeft_Tab: { id: `btnBack` },
         ShiftRight_Tab: { id: `btnBack` },
         Tab: { id: `btnDisplay` },
+        KeyU: { id: `btnSettingSummary` },
     },
     settingsDisplay: {
         ShiftLeft_KeyA: { id: `lnkAppearanceL` },
@@ -1741,6 +2529,37 @@ const g_shortcutObj = {
         ShiftLeft_Tab: { id: `btnBack` },
         ShiftRight_Tab: { id: `btnBack` },
         Tab: { id: `btnSettings` },
+        KeyU: { id: `btnSettingSummary` },
+    },
+    exSetting: {
+        ShiftLeft_KeyP: { id: `lnkPlayWindowL` },
+        ShiftLeft_KeyS: { id: `lnkStepAreaL` },
+        ShiftLeft_KeyF: { id: `lnkFrzReturnL` },
+        ShiftLeft_KeyH: { id: `lnkShakingL` },
+        ShiftLeft_KeyE: { id: `lnkEffectL` },
+        ShiftLeft_KeyC: { id: `lnkCamoufrageL` },
+        ShiftLeft_KeyW: { id: `lnkSwappingL` },
+        ShiftLeft_KeyJ: { id: `lnkJudgRangeL` },
+        ShiftLeft_KeyA: { id: `lnkAutoRetryL` },
+
+        KeyP: { id: `lnkPlayWindowR` },
+        KeyS: { id: `lnkStepAreaR` },
+        KeyF: { id: `lnkFrzReturnR` },
+        KeyH: { id: `lnkShakingR` },
+        KeyE: { id: `lnkEffectR` },
+        KeyC: { id: `lnkCamoufrageR` },
+        KeyW: { id: `lnkSwappingR` },
+        KeyJ: { id: `lnkJudgRangeR` },
+        KeyA: { id: `lnkAutoRetryR` },
+
+        KeyZ: { id: `btnSave` },
+        Escape: { id: `btnBack` },
+        Space: { id: `btnKeyConfig` },
+        Enter: { id: `btnPlay` },
+        ShiftLeft_Tab: { id: `btnBack` },
+        ShiftRight_Tab: { id: `btnBack` },
+        Tab: { id: `btnexSetting` },
+        KeyU: { id: `btnSettingSummary` },
     },
     keyConfig: {
         Escape: { id: `btnBack` },
@@ -1757,10 +2576,13 @@ const g_shortcutObj = {
         ShiftRight_Tab: { id: `btnBack` },
         ControlLeft_KeyC: { id: `` },
         ControlRight_KeyC: { id: `` },
+        KeyI: { id: `btnGaugeTransition` },
         KeyC: { id: `btnCopy`, reset: true },
         KeyX: { id: `btnTweet`, reset: true }, // x
         KeyD: { id: `btnGitter`, reset: true }, // Discord
         KeyP: { id: `btnCopyImage` },
+        ArrowLeft: { id: `btnGaugeTrL` },
+        ArrowRight: { id: `btnGaugeTrR` },
         Backspace: { id: `btnRetry` },
     },
 };
@@ -1769,27 +2591,43 @@ const g_shortcutObj = {
 // b_frame: ボタンの有効化フレーム数、s_frame: ショートカットキーの有効化フレーム数
 // initial: 初回のみ有効化時間を設定する場合、trueを設定
 const g_btnWaitFrame = {
-    initial: { b_frame: 0, s_frame: 0 },
-    title: { b_frame: 0, s_frame: 0 },
-    option: { b_frame: 0, s_frame: 0, initial: true },
-    difSelector: { b_frame: 0, s_frame: 0 },
-    settingsDisplay: { b_frame: 0, s_frame: 0 },
-    keyConfig: { b_frame: 0, s_frame: 30 },
-    loading: { b_frame: 0, s_frame: 0 },
-    loadingIos: { b_frame: 0, s_frame: 0 },
-    main: { b_frame: 0, s_frame: 0 },
-    result: { b_frame: 0, s_frame: 120 },
+    initial: {},
+    title: {},
+    dataMgt: {},
+    precondition: {},
+    option: { initial: true },
+    difSelector: {},
+    settingsDisplay: {},
+    exSetting: {},
+    keyConfig: { s_frame: 30 },
+    loading: {},
+    loadingIos: {},
+    main: {},
+    result: { s_frame: 120 },
 };
+Object.keys(g_btnWaitFrame).forEach(key => {
+    if (!g_btnWaitFrame[key].b_frame) {
+        g_btnWaitFrame[key].b_frame = 0;
+    }
+    if (!g_btnWaitFrame[key].s_frame) {
+        g_btnWaitFrame[key].s_frame = 0;
+    }
+});
 
 // 主要ボタンのリスト
+// - btn + プロパティ名に合致するボタンid名に対して、
+//   どの位置(X方向)にショートカット名を表示するかを設定
 const g_btnPatterns = {
-    title: { Start: 0, Comment: -10 },
-    option: { Back: 0, KeyConfig: 0, Play: 0, Display: -5, Save: -10, Graph: -25 },
-    difSelector: {},
-    settingsDisplay: { Back: 0, KeyConfig: 0, Play: 0, Save: -10, Settings: -5 },
+    title: { Start: 0, Comment: -10, MusicSelectRandom: -10 },
+    dataMgt: { Back: 0, Environment: -35, Highscores: -35, CustomKey: -35, Others: -35 },
+    precondition: { Back: 0 },
+    option: { Back: 0, KeyConfig: 0, Play: 0, Display: -5, Save: -10, Graph: -25, SettingSummary: -10 },
+    difSelector: { SettingSummary: -10 },
+    settingsDisplay: { Back: 0, KeyConfig: 0, Play: 0, Save: -10, Settings: -5, SettingSummary: -10 },
+    exSetting: { Back: 0, KeyConfig: 0, Play: 0, exSetting: -5, Save: -10, SettingSummary: -10 },
     loadingIos: { Play: 0 },
     keyConfig: { Back: -3, Play: 0 },
-    result: { Back: -5, Copy: -5, Tweet: -5, Gitter: -5, Retry: 0 },
+    result: { Back: -5, Copy: -5, Tweet: -5, Gitter: -5, Retry: 0, GaugeTransition: -15 },
 };
 
 // メイン画面以外でキーリピートを許可しないキーを設定
@@ -1914,6 +2752,7 @@ const g_keyObj = {
     dfPtnNum: 0,
 
     minKeyCtrlNum: 2,
+    defaultKeyList: [],
 
     // キー別ヘッダー
     // - 譜面データ中に出てくる矢印(ノーツ)の種類と順番(ステップゾーン表示順)を管理する
@@ -1925,18 +2764,26 @@ const g_keyObj = {
     chara9A_0: [`left`, `down`, `up`, `right`, `space`, `sleft`, `sdown`, `sup`, `sright`],
     chara9B_0: [`left`, `down`, `up`, `right`, `space`, `sleft`, `sdown`, `sup`, `sright`],
     chara9i_0: [`sleft`, `sdown`, `sup`, `sright`, `left`, `down`, `up`, `right`, `space`],
+    chara9d_0: [`left`, `down`, `up`, `right`, `space`, `sleft`, `sdown`, `sup`, `sright`],
+    chara9h_0: [`1x`, `yx`, `ux`, `ix`, `ax`, `zx`, `sx`, `hx`, `mx`],
     chara11_0: [`sleft`, `sdown`, `sup`, `sright`,
         `left`, `leftdia`, `down`, `space`, `up`, `rightdia`, `right`],
     chara11L_0: [`sleft`, `sdown`, `sup`, `sright`,
         `left`, `leftdia`, `down`, `space`, `up`, `rightdia`, `right`],
     chara11i_0: [`left`, `down`, `gor`, `up`, `right`, `space`,
         `sleft`, `sdown`, `siyo`, `sup`, `sright`],
+    chara11j_0: [`gor`, `left`, `down`, `up`, `right`, `space`,
+        `sleft`, `sdown`, `sup`, `sright`, `siyo`],
     chara11W_0: [`sleft`, `sdown`, `sup`, `sright`,
         `left`, `leftdia`, `down`, `space`, `up`, `rightdia`, `right`],
     chara12_0: [`sleft`, `sdown`, `sup`, `sright`,
         `oni`, `left`, `leftdia`, `down`, `space`, `up`, `rightdia`, `right`],
+    chara12i_0: [`oni`, `left`, `leftdia`, `down`, `space`, `up`, `rightdia`, `right`,
+        `sleft`, `sdown`, `sup`, `sright`],
     chara13_0: [`tleft`, `tdown`, `tup`, `tright`,
         `left`, `down`, `up`, `right`, `space`, `sleft`, `sdown`, `sup`, `sright`],
+    chara13_1: [`left`, `down`, `up`, `right`, `space`, `sleft`, `sdown`, `sup`, `sright`,
+        `tleft`, `tdown`, `tup`, `tright`,],
     chara14_0: [`sleftdia`, `sleft`, `sdown`, `sup`, `sright`, `srightdia`,
         `oni`, `left`, `leftdia`, `down`, `space`, `up`, `rightdia`, `right`],
     chara14i_0: [`gor`, `space`, `iyo`, `left`, `down`, `up`, `right`,
@@ -1954,11 +2801,27 @@ const g_keyObj = {
     chara5_1: [`space`, `left`, `down`, `up`, `right`],
     chara8_1: [`sleft`, `left`, `leftdia`, `down`, `space`, `up`, `rightdia`, `right`],
     chara9i_1: [`left`, `down`, `up`, `right`, `space`, `sleft`, `sdown`, `sup`, `sright`],
+    chara9h_1: [`1x`, `ax`, `zx`, `sx`, `hx`, `yx`, `ux`, `mx`, `ix`],
+    chara11_1: [`left`, `leftdia`, `down`, `space`, `up`, `rightdia`, `right`,
+        `sleft`, `sdown`, `sup`, `sright`],
     chara17_1: [`aleft`, `adown`, `aup`, `aright`, `space`, `dleft`, `ddown`, `dup`, `dright`,
         `bleft`, `bdown`, `bup`, `bright`, `cleft`, `cdown`, `cup`, `cright`],
 
     chara5_2: [`left`, `down`, `space`, `up`, `right`],
     chara8_2: [`sleft`, `left`, `leftdia`, `down`, `space`, `up`, `rightdia`, `right`],
+    chara9h_2: [`1x`, `ax`, `zx`, `sx`, `hx`, `yx`, `ux`, `mx`, `ix`],
+    chara11_2: [`left`, `sleft`, `sdown`, `leftdia`, `down`, `space`,
+        `up`, `sup`, `sright`, `rightdia`, `right`],
+    chara11L_2: [`left`, `sleft`, `sdown`, `leftdia`, `down`, `space`,
+        `up`, `sup`, `sright`, `rightdia`, `right`],
+
+    chara9h_3: [`1x`, `ax`, `zx`, `sx`, `hx`, `yx`, `ux`, `mx`, `ix`],
+    chara9h_4: [`1x`, `ax`, `gor`, `zx`, `sx`, `hx`, `yx`, `ux`, `siyo`, `mx`, `ix`],
+    chara9h_5: [`1x`, `ax`, `zx`, `sx`, `hx`, `yx`, `ux`, `mx`, `ix`],
+    chara9h_6: [`1x`, `ax`, `zx`, `sx`, `hx`, `yx`, `ux`, `mx`, `ix`],
+
+    chara9A_7: [`left`, `sleft`, `sdown`, `sright`, `down`, `up`, `right`, `space`, `sup`],
+    chara9h_7: [`1x`, `ax`, `zx`, `sx`, `hx`, `yx`, `ux`, `mx`, `ix`],
 
     // 頻度の高い譜面データ名パターン
     // 後で chara4A, chara4A_a, chara4A_b, ... に変換する
@@ -1976,11 +2839,15 @@ const g_keyObj = {
     color9A_0_0: [0, 0, 0, 0, 2, 3, 3, 3, 3],
     color9B_0_0: [1, 0, 1, 0, 2, 0, 1, 0, 1],
     color9i_0_0: [0, 0, 0, 0, 2, 2, 2, 2, 2],
+    color9d_0_0: [0, 1, 0, 2, 2, 2, 0, 1, 0],
+    color9h_0_0: [2, 3, 3, 3, 1, 0, 1, 1, 0],
     color11_0_0: [3, 3, 3, 3, 0, 1, 0, 2, 0, 1, 0],
     color11L_0_0: [3, 3, 3, 3, 0, 1, 0, 2, 0, 1, 0],
     color11W_0_0: [2, 3, 3, 2, 0, 1, 0, 2, 0, 1, 0],
     color11i_0_0: [0, 0, 2, 0, 0, 2, 3, 3, 2, 3, 3],
+    color11j_0_0: [2, 0, 0, 0, 0, 2, 3, 3, 3, 3, 2],
     color12_0_0: [3, 3, 3, 3, 2, 0, 1, 0, 1, 0, 1, 0],
+    color12i_0_0: [1, 0, 1, 0, 3, 3, 3, 3, 0, 1, 0, 1],
     color13_0_0: [4, 4, 4, 4, 0, 0, 0, 0, 2, 3, 3, 3, 3],
     color14_0_0: [4, 3, 3, 3, 3, 4, 2, 0, 1, 0, 1, 0, 1, 0],
     color14i_0_0: [2, 2, 2, 3, 3, 3, 3, 0, 1, 0, 2, 0, 1, 0],
@@ -1993,6 +2860,8 @@ const g_keyObj = {
     color8_1_0: [2, 0, 1, 0, 2, 0, 1, 0],
     color9B_1_0: [0, 0, 0, 0, 2, 1, 1, 1, 1],
     color9i_1_0: [2, 2, 2, 2, 2, 0, 0, 0, 0],
+    color11_1_0: [0, 1, 0, 2, 0, 1, 0, 3, 3, 3, 3],
+    color13_1_0: [0, 0, 0, 0, 2, 3, 3, 3, 3, 4, 4, 4, 4],
     color17_1_0: [0, 0, 0, 0, 2, 4, 4, 4, 4, 1, 1, 1, 1, 3, 3, 3, 3],
 
     color5_2_0: [0, 0, 2, 0, 0],
@@ -2001,15 +2870,21 @@ const g_keyObj = {
     color9A_2_0: [3, 0, 3, 0, 2, 0, 3, 0, 3],
     color9B_2_0: [0, 0, 0, 0, 2, 1, 1, 1, 1],
 
+    color9B_3_0: [0, 0, 2, 0, 0, 2, 1, 1, 2, 1, 1],
+
     // ColorGroup - 2
     color9A_0_1: [0, 0, 3, 0, 2, 0, 0, 3, 0],
     color9B_0_1: [4, 3, 1, 0, 2, 0, 1, 3, 4],
+    color12_0_1: [3, 3, 3, 3, 2, 1, 0, 1, 0, 1, 0, 1],
     color13_0_1: [4, 4, 3, 4, 0, 0, 3, 0, 2, 0, 0, 3, 0],
+    color14_0_1: [4, 3, 3, 3, 3, 4, 2, 1, 0, 1, 0, 1, 0, 1],
     color17_0_1: [0, 1, 0, 1, 0, 1, 0, 1, 2, 3, 4, 3, 4, 3, 4, 3, 4],
 
     color9B_1_1: [0, 0, 1, 0, 2, 0, 0, 1, 0],
+    color13_1_1: [0, 0, 3, 0, 2, 0, 0, 3, 0, 4, 4, 3, 4],
     color17_1_1: [1, 1, 1, 1, 2, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0, 0, 0],
 
+    color8_2_1: [2, 1, 0, 1, 0, 1, 0, 1],
     color9A_2_1: [4, 1, 3, 0, 2, 0, 3, 1, 4],
     color9B_2_1: [0, 0, 1, 0, 2, 0, 0, 1, 0],
 
@@ -2031,11 +2906,15 @@ const g_keyObj = {
     shuffle9A_0_0: [0, 0, 0, 0, 1, 0, 0, 0, 0],
     shuffle9B_0_0: [0, 0, 0, 0, 1, 0, 0, 0, 0],
     shuffle9i_0_0: [0, 0, 0, 0, 1, 1, 1, 1, 1],
+    shuffle9d_0_0: [0, 0, 0, 1, 1, 1, 2, 2, 2],
+    shuffle9h_0_0: [1, 0, 0, 0, 1, 1, 1, 0, 0],
     shuffle11_0_0: [0, 0, 0, 0, 1, 1, 1, 2, 1, 1, 1],
     shuffle11L_0_0: [0, 0, 0, 0, 1, 1, 1, 2, 1, 1, 1],
     shuffle11W_0_0: [0, 0, 0, 0, 1, 1, 1, 2, 1, 1, 1],
     shuffle11i_0_0: [0, 0, 1, 0, 0, 2, 0, 0, 1, 0, 0],
+    shuffle11j_0_0: [1, 0, 0, 0, 0, 1, 0, 0, 0, 0, 1],
     shuffle12_0_0: [0, 0, 0, 0, 1, 2, 2, 2, 2, 2, 2, 2],
+    shuffle12i_0_0: [0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0],
     shuffle13_0_0: [0, 0, 0, 0, 1, 1, 1, 1, 2, 3, 3, 3, 3],
     shuffle14_0_0: [0, 0, 0, 0, 0, 0, 1, 2, 2, 2, 2, 2, 2, 2],
     shuffle14i_0_0: [0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 3, 2, 2, 2],
@@ -2047,6 +2926,8 @@ const g_keyObj = {
     shuffle5_1_0: [1, 0, 0, 0, 0],
     shuffle8_1_0: [2, 0, 0, 0, 1, 0, 0, 0],
     shuffle9i_1_0: [0, 0, 0, 0, 0, 1, 1, 1, 1],
+    shuffle11_1_0: [1, 1, 1, 2, 1, 1, 1, 0, 0, 0, 0],
+    shuffle13_1_0: [1, 1, 1, 1, 2, 3, 3, 3, 3, 0, 0, 0, 0],
     shuffle17_1_0: [0, 0, 0, 0, 1, 2, 2, 2, 2, 0, 0, 0, 0, 2, 2, 2, 2],
 
     shuffle5_2_0: [0, 0, 1, 0, 0],
@@ -2057,6 +2938,8 @@ const g_keyObj = {
     shuffle11_0_1: [0, 0, 0, 0, 1, 1, 1, 2, 3, 3, 3],
     shuffle11L_0_1: [0, 0, 0, 0, 1, 1, 1, 2, 3, 3, 3],
     shuffle11i_0_1: [0, 0, 1, 0, 0, 2, 3, 3, 4, 3, 3],
+    shuffle11j_0_1: [3, 0, 0, 0, 0, 1, 2, 2, 2, 2, 4],
+    shuffle12i_0_1: [0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 2],
     shuffle15A_0_1: [0, 0, 0, 0, 1, 1, 1, 1, 2, 2, 2, 3, 4, 4, 4],
     shuffle17_0_1: [0, 0, 0, 0, 0, 0, 0, 0, 1, 2, 2, 2, 2, 2, 2, 2, 2],
     shuffle23_0_1: [0, 0, 0, 0, 0, 0, 0, 0, 2, 2, 2, 2, 2, 2, 2, 3, 2, 2, 2, 2, 2, 2, 2],
@@ -2077,11 +2960,15 @@ const g_keyObj = {
     stepRtn9A_0_0: [0, -90, 90, 180, `onigiri`, 0, -90, 90, 180],
     stepRtn9B_0_0: [45, 0, -45, -90, `onigiri`, 90, 135, 180, 225],
     stepRtn9i_0_0: [0, -90, 90, 180, `monar`, `giko`, `c`, `morara`, `onigiri`],
+    stepRtn9d_0_0: [0, -45, -90, `giko`, `onigiri`, `iyo`, 90, 135, 180],
+    stepRtn9h_0_0: [`giko`, 0, -90, 180, 45, -90, 135, -45, -90],
     stepRtn11_0_0: [0, -90, 90, 180, 0, -45, -90, `onigiri`, 90, 135, 180],
     stepRtn11L_0_0: [0, -90, 90, 180, 0, -45, -90, `onigiri`, 90, 135, 180],
     stepRtn11W_0_0: [`giko`, 135, 45, `iyo`, 0, -45, -90, `onigiri`, 90, 135, 180],
     stepRtn11i_0_0: [0, -90, `giko`, 90, 180, `onigiri`, 0, -90, `iyo`, 90, 180],
+    stepRtn11j_0_0: [`giko`, 0, -90, 90, 180, `onigiri`, 0, -90, 90, 180, `iyo`],
     stepRtn12_0_0: [0, -90, 90, 180, `onigiri`, 0, 30, 60, 90, 120, 150, 180],
+    stepRtn12i_0_0: [45, 0, -45, -90, `giko`, `onigiri`, `iyo`, `c`, 90, 135, 180, 225],
     stepRtn13_0_0: [0, -90, 90, 180, 0, -90, 90, 180, `onigiri`, 0, -90, 90, 180],
     stepRtn14_0_0: [45, 0, -90, 90, 180, 135, `onigiri`, 0, 30, 60, 90, 120, 150, 180],
     stepRtn14i_0_0: [`giko`, `onigiri`, `iyo`, 0, -90, 90, 180, 0, -45, -90, `onigiri`, 90, 135, 180],
@@ -2093,10 +2980,10 @@ const g_keyObj = {
     stepRtn5_1_0: [`onigiri`, 0, -90, 90, 180],
     stepRtn8_1_0: [`onigiri`, 0, -45, -90, `onigiri`, 90, 135, 180],
     stepRtn9i_1_0: [`monar`, `giko`, `c`, `morara`, `onigiri`, 0, -90, 90, 180],
+    stepRtn11_1_0: [0, -45, -90, `onigiri`, 90, 135, 180, 0, -90, 90, 180],
+    stepRtn13_1_0: [0, -90, 90, 180, `onigiri`, 0, -90, 90, 180, 0, -90, 90, 180],
     stepRtn17_1_0: [0, -45, -90, -135, `onigiri`, 45, 90, 135, 180,
         -22.5, -67.5, -112.5, -157.5, 22.5, 67.5, 112.5, 157.5],
-    stepRtn17_1_1: [45, 0, -45, -90, `onigiri`, 90, 135, 180, 225,
-        45, 0, -45, -90, 90, 135, 180, 225],
 
     stepRtn5_2_0: [0, -90, `onigiri`, 90, 180],
     stepRtn8_2_0: [`onigiri`, 0, 30, 60, 90, 120, 150, 180],
@@ -2104,6 +2991,9 @@ const g_keyObj = {
     // ShapeGroup - 2 (矢印回転、AAキャラクタ)
     stepRtn11i_0_1: [0, -135, `giko`, 45, 180, `onigiri`, 0, -135, `iyo`, 45, 180],
     stepRtn17_0_1: [-30, 0, 30, 60, 90, 120, 150, 180, `onigiri`, 0, 30, 60, 90, 120, 150, 180, 210],
+
+    stepRtn17_1_1: [45, 0, -45, -90, `onigiri`, 90, 135, 180, 225,
+        45, 0, -45, -90, 90, 135, 180, 225],
 
     // ShapeGroup - 3 (矢印回転、AAキャラクタ)
     stepRtn17_0_2: [45, 45, 0, 0, -45, -45, -90, -90, `onigiri`, 90, 90, 135, 135, 180, 180, 225, 225],
@@ -2117,6 +3007,7 @@ const g_keyObj = {
     // 各キーの区切り位置
     // - 未指定の場合は下段への折り返し無し
     div9i_0: 6,
+    div9h_0: 7,
     div11_0: 6,
     div11L_0: 6,
     div11W_0: 6,
@@ -2130,9 +3021,13 @@ const g_keyObj = {
 
     div17_1: 9,
 
+    // 各キーの下段最終位置
+    divMax9h_0: 15,
+
     // 各キーの位置関係
     // - 未指定の場合は0からの連番が入る
     pos9i_0: [2, 3, 4, 5, 6, 7, 8, 9, 10],
+    pos9h_0: [0, 4, 5, 6, 8, 9, 10, 11.75, 13],
     pos11_0: [2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
     pos11L_0: [0, 1, 2, 3, 6, 7, 8, 9, 10, 11, 12],
     pos11W_0: [0, 2, 3, 5, 6, 7, 8, 9, 10, 11, 12],
@@ -2142,6 +3037,9 @@ const g_keyObj = {
     pos14i_0: [0, 1, 2, 3, 4, 5, 6, 8, 9, 10, 11, 12, 13, 14],
     pos16i_0: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16],
     pos23_0: [0, 1, 2, 3, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26],
+
+    pos11_1: [0, 1, 2, 3, 4, 5, 6, 7.25, 8.25, 9.25, 10.25],
+    pos13_1: [0, 1, 2, 3, 4, 5, 6, 7, 8, 9.25, 10.25, 11.25, 12.25],
 
     // 基本パターン (キーコンフィグ)
     // - 順番はchara, stepRtnと対応している。
@@ -2153,11 +3051,15 @@ const g_keyObj = {
     keyCtrl9A_0: [[`S`], [`D`], [`E`, `R`], [`F`], [`Space`], [`J`], [`K`], [`I`], [`L`]],
     keyCtrl9B_0: [[`A`], [`S`], [`D`], [`F`], [`Space`], [`J`], [`K`], [`L`], [`;`]],
     keyCtrl9i_0: [[`Left`], [`Down`], [`Up`], [`Right`], [`A`], [`S`], [`D`], [`F`], [`Space`]],
+    keyCtrl9d_0: [[`S`], [`D`], [`F`], [`V`], [`B`], [`N`], [`J`], [`K`], [`L`]],
+    keyCtrl9h_0: [[`D1`], [`Y`], [`U`], [`I`], [`A`], [`Z`], [`S`], [`H`], [`M`]],
     keyCtrl11_0: [[`Left`], [`Down`], [`Up`], [`Right`], [`S`], [`D`], [`F`], [`Space`], [`J`], [`K`], [`L`]],
     keyCtrl11L_0: [[`W`], [`E`], [`D3`, `D4`], [`R`], [`S`], [`D`], [`F`], [`Space`], [`J`], [`K`], [`L`]],
     keyCtrl11W_0: [[`D1`, `D2`], [`T`], [`Y`], [`D0`, `Minus`], [`S`], [`D`], [`F`], [`Space`], [`J`], [`K`], [`L`]],
     keyCtrl11i_0: [[`S`], [`X`, `C`], [`D`], [`E`, `R`], [`F`], [`Space`], [`J`], [`M`, `Comma`], [`K`], [`I`, `O`], [`L`]],
+    keyCtrl11j_0: [[`Tab`], [`S`], [`D`], [`E`, `R`], [`F`], [`Space`], [`J`], [`K`], [`I`], [`L`], [`Enter`]],
     keyCtrl12_0: [[`U`], [`I`], [`D8`, `D9`], [`O`], [`Space`], [`N`], [`J`], [`M`], [`K`], [`Comma`], [`L`], [`Period`]],
+    keyCtrl12i_0: [[`F1`], [`F2`], [`F3`], [`F4`], [`F5`], [`F6`], [`F7`], [`F8`], [`F9`], [`F10`], [`F11`], [`F12`]],
     keyCtrl13_0: [[`Left`], [`Down`], [`Up`], [`Right`], [`S`], [`D`], [`E`, `R`], [`F`], [`Space`], [`J`], [`K`], [`I`], [`L`]],
     keyCtrl14_0: [[`T`, `Y`], [`U`], [`I`], [`D8`, `D7`, `D9`, `D0`], [`O`], [`BracketLeft`, `P`], [`Space`], [`N`], [`J`], [`M`], [`K`], [`Comma`], [`L`], [`Period`]],
     keyCtrl14i_0: [[`Z`, `W`], [`X`, `E`], [`C`, `R`], [`Left`], [`Down`], [`Up`], [`Right`], [`S`], [`D`], [`F`], [`Space`], [`J`], [`K`], [`L`]],
@@ -2175,7 +3077,10 @@ const g_keyObj = {
     keyCtrl8_1: [[`Enter`], [`S`], [`D`], [`F`], [`Space`], [`J`], [`K`], [`L`]],
     keyCtrl9A_1: [[`S`], [`D`], [`E`, `R`], [`F`], [`Space`], [`Left`], [`Down`], [`Up`], [`Right`]],
     keyCtrl9i_1: [[`A`], [`S`], [`D`], [`F`], [`Space`], [`Left`], [`Down`], [`Up`], [`Right`]],
+    keyCtrl11_1: [[`S`], [`D`], [`F`], [`Space`], [`J`], [`K`], [`L`], [`Left`], [`Down`], [`Up`], [`Right`]],
     keyCtrl12_1: [[`Y`], [`U`, `I`], [`D8`, `D7`, `D9`], [`O`], [`Space`], [`B`], [`H`], [`N`, `M`], [`J`, `K`], [`Comma`], [`L`], [`Period`]],
+    keyCtrl12i_1: [[`Q`], [`W`], [`E`], [`R`], [`T`], [`Y`], [`U`], [`I`], [`O`], [`P`], [`Ja-@`], [`Ja-[`]],
+    keyCtrl13_1: [[`S`], [`D`], [`E`, `R`], [`F`], [`Space`], [`J`], [`K`], [`I`], [`L`], [`Left`], [`Down`], [`Up`], [`Right`]],
     keyCtrl14_1: [[`R`, `T`], [`Y`], [`U`, `I`], [`D8`, `D6`, `D7`, `D9`, `D0`], [`O`], [`BracketLeft`, `P`], [`Space`], [`B`], [`H`], [`N`, `M`], [`J`, `K`], [`Comma`], [`L`], [`Period`]],
     keyCtrl17_1: [[`A`], [`S`], [`D`], [`F`], [`Space`], [`J`], [`K`], [`L`], [`;`], [`Z`], [`X`], [`C`], [`V`], [`N`], [`M`], [`Comma`], [`Period`]],
 
@@ -2213,7 +3118,14 @@ const g_keyObj = {
     blank5_2: 57.5,
     blank9A_0: 52.5,
     blank9B_0: 52.5,
+    blank9i_1: 52.5,
+    blank9d_0: 52.5,
+    blank11j_0: 50,
+    blank12i_0: 50,
     blank23_0: 50,
+
+    blank11_1: 50,
+    blank13_1: 50,
 
     // 矢印群の倍率指定
     scale: 1,
@@ -2221,11 +3133,13 @@ const g_keyObj = {
     scale17_0: 0.95,
 
     // ショートカットキーコード
-    keyRetry: 8,
-    keyRetry8_0: 9,
+    keyRetry: 8,            // 8: Backspace
+    keyRetry8_0: 9,         // 9: Tab
     keyRetry8_1: 9,
+    keyRetry11j_0: 123,     // 123: F12
 
-    keyTitleBack: 46,
+    keyTitleBack: 46,       // 46: Delete
+    keyTitleBack11j_0: 27,  // 27: Escape
 
     // 別キー
     transKey8_2: '12',
@@ -2241,6 +3155,7 @@ const g_keyObj = {
         '9A-2': '9A',
         '9B-1': '9B',
         '9B-2': '9B',
+        'himsiyauz': '9h',
         'TP': '13',
         '15': '15A',
         '15R': '15B',
@@ -2326,7 +3241,6 @@ const g_keyObj = {
         'Twist': [1, 1, -1, -1, -1, 1, 1, -1, -1],
         'Asymmetry': [1, -1, -1, 1, -1, -1, 1, 1, -1],
     },
-
     scrollDir9i_1: {
         '---': [1, 1, 1, 1, 1, 1, 1, 1, 1],
         'Cross': [1, 1, -1, -1, -1, -1, -1, 1, 1],
@@ -2335,10 +3249,30 @@ const g_keyObj = {
         'Twist': [1, 1, -1, -1, 1, 1, 1, -1, -1],
         'Asymmetry': [1, -1, -1, 1, -1, -1, 1, 1, -1],
     },
+    scrollDir9d_0: {
+        '---': [1, 1, 1, 1, 1, 1, 1, 1, 1],
+        'Cross': [1, 1, 1, -1, -1, -1, 1, 1, 1],
+        'Split': [1, 1, 1, 1, -1, -1, -1, -1, -1],
+        'Alternate': [1, -1, 1, -1, 1, -1, 1, -1, 1],
+        'Twist': [1, 1, -1, -1, -1, 1, 1, -1, -1],
+        'Asymmetry': [1, -1, -1, 1, -1, -1, 1, 1, -1],
+    },
+    scrollDir9h_0: {
+        '---': [1, 1, 1, 1, 1, 1, 1, 1, 1],
+        'Flat': [1, 1, 1, 1, -1, -1, -1, -1, -1],
+    },
 
     scrollDir11_0: {
         '---': [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
         'Flat': [1, 1, 1, 1, -1, -1, -1, -1, -1, -1, -1],
+    },
+    scrollDir11_1: {
+        '---': [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+        'Cross': [1, 1, 1, -1, -1, -1, -1, 1, 1, 1, 1],
+        'Split': [-1, -1, -1, -1, -1, -1, -1, 1, 1, 1, 1],
+        'Alternate': [1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1],
+        'Twist': [1, 1, -1, -1, -1, 1, 1, 1, -1, -1, 1],
+        'Asymmetry': [1, -1, 1, -1, -1, 1, -1, -1, 1, 1, -1],
     },
     scrollDir11L_0: {
         '---': [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
@@ -2356,16 +3290,37 @@ const g_keyObj = {
         'Twist': [1, 1, 1, -1, -1, -1, 1, 1, 1, -1, -1],
         'Asymmetry': [1, -1, 1, -1, 1, -1, -1, 1, -1, 1, -1],
     },
+    scrollDir11j_0: {
+        '---': [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+        'Cross': [1, 1, 1, -1, -1, -1, -1, -1, 1, 1, 1],
+        'Split': [1, 1, 1, 1, 1, -1, -1, -1, -1, -1, -1],
+        'Alternate': [1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1],
+        'AA-Split': [1, -1, -1, -1, -1, 1, -1, -1, -1, -1, 1],
+    },
 
     scrollDir12_0: {
         '---': [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
         'Flat': [1, 1, 1, 1, -1, -1, -1, -1, -1, -1, -1, -1],
         'Twist': [1, 1, 1, 1, -1, -1, 1, 1, 1, 1, 1, -1],
     },
+    scrollDir12i_0: {
+        '---': [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+        'Cross': [1, 1, 1, 1, -1, -1, -1, -1, 1, 1, 1, 1],
+        'Split': [1, 1, 1, 1, 1, 1, -1, -1, -1, -1, -1, -1],
+        'Alternate': [1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1],
+    },
     scrollDir13_0: {
         '---': [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
         'Flat': [1, 1, 1, 1, -1, -1, -1, -1, -1, -1, -1, -1, -1],
         'Cross': [-1, -1, -1, -1, 1, 1, 1, 1, -1, -1, -1, -1, -1],
+    },
+    scrollDir13_1: {
+        '---': [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
+        'Cross': [1, 1, 1, 1, -1, -1, -1, -1, -1, 1, 1, 1, 1],
+        'Split': [-1, -1, -1, -1, -1, -1, -1, -1, -1, 1, 1, 1, 1],
+        'Alternate': [1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1, -1, 1],
+        'Twist': [1, 1, -1, -1, -1, 1, 1, -1, -1, 1, 1, -1, -1],
+        'Asymmetry': [1, -1, -1, 1, -1, -1, 1, 1, -1, 1, -1, -1, 1],
     },
     scrollDir14_0: {
         '---': [1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1],
@@ -2413,6 +3368,10 @@ const g_keyObj = {
         'Left': [1, 1, 1, 1, 0, 0, 0, 0, 0],
         'Right': [0, 0, 0, 0, 0, 1, 1, 1, 1],
     },
+    assistPos9d_0: {
+        'Left': [1, 1, 1, 1, 0, 0, 0, 0, 0],
+        'Right': [0, 0, 0, 0, 0, 1, 1, 1, 1],
+    },
 
     assistPos11i_0: {
         'Left': [1, 1, 1, 1, 1, 0, 0, 0, 0, 0, 0],
@@ -2438,9 +3397,11 @@ const g_keyObj = {
 
     minWidth5: 500,
     minWidth7i: 550,
-    minWidth9A: 650,
+    minWidth11: 650,
     minWidth11i: 650,
-    minWidth13: 650,
+    minWidth11j: 650,
+    minWidth12i: 675,
+    minWidth13: 750,
     minWidth16i: 650,
     minWidth17: 825,
     minWidth23: 900,
@@ -2450,13 +3411,19 @@ const g_keyObj = {
 // g_keyObj.defaultProp の上書きを禁止
 Object.defineProperty(g_keyObj, `defaultProp`, { writable: false });
 
+// 既定のキー定義リストを動的に作成
+Object.keys(g_keyObj)
+    .filter(key => key.startsWith(g_keyObj.defaultProp) && key.endsWith(`_0`))
+    .forEach(key => g_keyObj.defaultKeyList.push(key.split(`_`)[0].slice(g_keyObj.defaultProp.length)));
+
 // キーパターンのコピーリスト
 // ・コピー先：コピー元の順に指定する
 // ・上から順に処理する
 const g_copyKeyPtn = {
-    '8_3': `8_2`,
+    '8_3': `8_2`, // 12key下部はマッピングが異なるため、8_2を流用
     '8_4': `8_2`,
     '8_5': `8_2`,
+
     '7_1': `7_0`,
     '7_2': `7i_0`,
     '7_3': `8_2`,
@@ -2474,26 +3441,74 @@ const g_copyKeyPtn = {
     '9A_1': `9A_0`,
     '9A_2': `9B_0`,
     '9A_3': `11i_0`,
+    '9A_4': `9i_0`,
+    '9A_5': `9i_1`,
+    '9A_6': `9d_0`,
+    '9A_7': `9h_0`,
+
     '9B_1': `9A_0`,
     '9B_2': `9A_1`,
+    '9B_3': `11i_0`,
+    '9B_4': `9i_0`,
+    '9B_5': `9i_1`,
+    '9B_6': `9d_0`,
+    '9B_7': `9A_7`, // 9hはcharaX_Yのマッピングが異なるため、9A_7を流用
 
+    '9i_2': `9A_0`,
+    '9i_3': `9A_1`,
+    '9i_4': `9B_0`,
+    '9i_5': `11i_0`,
+    '9i_6': `9d_0`,
+    '9i_7': `9A_7`, // 9hはcharaX_Yのマッピングが異なるため、9A_7を流用
+
+    '9d_1': `9A_0`,
+    '9d_2': `9A_1`,
+    '9d_3': `9B_0`,
+    '9d_4': `11i_0`,
+    '9d_5': `9i_0`,
+    '9d_6': `9i_1`,
+    '9d_7': `9A_7`, // 9hはcharaX_Yのマッピングが異なるため、9A_7を流用
+
+    // 9hはcharaX_Yのマッピングが異なるため、既存パターンをコピーしたうえでcharaX_Yを入れ替え
+    '9h_1': `9A_0`,
+    '9h_2': `9A_1`,
+    '9h_3': `9B_0`,
+    '9h_4': `11i_0`,
+    '9h_5': `9i_0`,
+    '9h_6': `9i_1`,
+    '9h_7': `9d_0`,
+
+    '12i_1': `12i_0`, // 12keyで12ikeyの参照を行うため先に定義
     '12_1': `12_0`,
     '12_2': `12_0`,
     '12_3': `12_0`,
-    '11_1': `11L_0`,
-    '11_2': `12_0`,
-    '11_3': `12_1`,
-    '11_4': `12_2`,
-    '11_5': `12_3`,
+    '12_4': `12i_0`,
+    '12_5': `12i_1`,
+
+    '11_2': `11L_0`,
+    '11_3': `11i_0`,
+    '11_4': `12_0`,
+    '11_5': `12_1`,
+    '11_6': `12_2`,
+    '11_7': `12_3`,
+
     '11L_1': `11_0`,
-    '11L_2': `12_0`,
-    '11L_3': `12_1`,
-    '11L_4': `12_2`,
-    '11L_5': `12_3`,
+    '11L_2': `11_1`,
+    '11L_3': `11_3`, // 1iiはcharaX_Yのマッピングが異なるため、11_3を流用
+    '11L_4': `12_0`,
+    '11L_5': `12_1`,
+    '11L_6': `12_2`,
+    '11L_7': `12_3`,
+
     '11W_1': `12_0`,
     '11W_2': `12_1`,
     '11W_3': `12_2`,
     '11W_4': `12_3`,
+
+    '12i_2': `12_0`,
+    '12i_3': `12_1`,
+    '12i_4': `12_2`,
+    '12i_5': `12_3`,
 
     '14_1': `14_0`,
     '14_2': `14_0`,
@@ -2556,10 +3571,12 @@ Object.keys(g_copyKeyPtn).forEach(keyPtnTo => {
     copyKeyPtnVal(`keyRetry`);
     copyKeyPtnVal(`keyTitleBack`);
 
-    if (g_keyObj[`transKey${keyPtnFrom}`] !== undefined) {
-        g_keyObj[`transKey${keyPtnTo}`] = g_keyObj[`transKey${keyPtnFrom}`];
-    } else if (g_keyObj[`transKey${keyPtnTo}`] === undefined && keyPtnFrom.split(`_`)[0] !== keyPtnTo.split(`_`)[0]) {
-        g_keyObj[`transKey${keyPtnTo}`] = keyPtnFrom.split(`_`)[0];
+    if (g_keyObj[`transKey${keyPtnTo}`] === undefined || g_keyObj[`transKey${keyPtnTo}`].includes(`_`)) {
+        if (g_keyObj[`transKey${keyPtnFrom}`] !== undefined) {
+            g_keyObj[`transKey${keyPtnTo}`] = g_keyObj[`transKey${keyPtnFrom}`];
+        } else if (g_keyObj[`transKey${keyPtnTo}`] === undefined && keyPtnFrom.split(`_`)[0] !== keyPtnTo.split(`_`)[0]) {
+            g_keyObj[`transKey${keyPtnTo}`] = keyPtnFrom.split(`_`)[0];
+        }
     }
 });
 
@@ -2584,11 +3601,49 @@ g_keycons.groups.forEach(type => {
     tmpName.forEach(property => g_keyObj[`${property.slice(0, -2)}`] = g_keyObj[property].concat());
 });
 
+// 外部エディター用テンプレート
+// g_editorTmp: Dancing☆Onigiriエディター (CW Edition対応)
+// g_editorTmp2: ダンおに譜面作成エディタ ver3.x
+const g_editorTmp = {};
+let g_editorTmp2 = ``;
+
+const g_editorTmp2Template = `
+<br>
+\$key=[__KEY__]<br>
+\$map=[__MAP__]<br>
+\$pos=[__POS__]<br>
+\$txt=[__TXT__]<br>
+[__CONV__]
+<br>
+\$dosformat=<br>function externalDosInit() {[E]<br>
+[E]<br>
+&nbsp;&nbsp;g_externalDos = \`[E]<br>
+[E]<br>
+[header][E]<br>
+[E]<br>
+[notestart]<br>
+[__NOTE__]
+<br>
+[__FREEZE__]
+<br>
+|speed[i]_data=[speed]|[E]<br>
+|boost[i]_data=[boost]|[E]<br>
+[datatext][E]<br>
+|edit[i]_info=[edit]|[E][E]<br>
+[noteend]<br>
+<br>
+[footer]<br>
+&nbsp;&nbsp;\`;[E]<br>
+}<br>
+<br>
+`;
+
 // 特殊キーのコピー種 (simple: 代入、multiple: 配列ごと代入)
+// 後でプロパティ削除に影響するため、先頭文字が全く同じ場合は長い方を先に定義する (例: divMax, div)
 const g_keyCopyLists = {
     simpleDef: [`blank`, `scale`],
-    simple: [`div`, `divMax`, `blank`, `scale`, `keyRetry`, `keyTitleBack`, `transKey`, `scrollDir`, `assistPos`, `flatMode`],
-    multiple: [`chara`, `color`, `stepRtn`, `pos`, `shuffle`, `keyGroup`, `keyGroupOrder`],
+    simple: [`divMax`, `div`, `blank`, `scale`, `keyRetry`, `keyTitleBack`, `transKey`, `scrollDir`, `assistPos`, `flatMode`],
+    multiple: [`chara`, `color`, `stepRtn`, `pos`, `shuffle`, `keyGroupOrder`, `keyGroup`, `layerGroup`, `layerTrans`],
 };
 
 // タイトル画面関連のリスト群
@@ -2660,6 +3715,17 @@ const g_dataMinObj = {
     back: 1,
     style: 1,
 };
+
+/**
+ * データフォーマット管理用
+ * - セット数: 対象の配列名の組で記述
+ */
+const g_dataSetObj = {
+    2: [`speedData`, `boostData`],
+    4: [`colorData`, `arrowCssMotionData`, `frzCssMotionData`,
+        `dummyArrowCssMotionData`, `dummyFrzCssMotionData`],
+    5: [`ncolorData`, `scrollchData`],
+}
 
 const g_dfColorObj = {
 
@@ -2810,7 +3876,7 @@ const g_checkStr = {
 
     // 譜面分割あり、譜面番号固定時のみ譜面データを一時クリアする際の条件
     resetDosHeader: [`gauge`],
-    resetDosFooter: [`_data`, `_change`, `Color`, `customGauge`],
+    resetDosFooter: [`_data`, `_change`, `Color`, `Color1`, `customGauge`],
 };
 
 /** 
@@ -2831,7 +3897,9 @@ const g_lang_msgInfoObj = {
         W_0012: `現在の設定では音源再生方法により小数の Adjustment が利用できません。<br>
         また、Fadein を使用した場合は通常よりズレが発生することがあります。<br>
         音源ファイルを js/txt 化するか、サーバー上動作とすれば解消します。(W-0012)`,
-        W_0021: `クリップボードのコピーに失敗しました。`,
+        W_0031: `セーフモード適用中です。ローカルストレージ情報を使わない設定になっています。<br>
+        「Data Management」から解除が可能です。(W-0031)`,
+        W_0041: `選曲単品モードが有効になっています。<br><a href="{0}">[ 選曲画面へ戻る ]</a>`,
 
         E_0011: `アーティスト名が未入力です。(E-0011)`,
         E_0012: `曲名情報が未設定です。(E-0012)<br>
@@ -2846,20 +3914,12 @@ const g_lang_msgInfoObj = {
         &lt;input type="hidden" name="dos" id="dos" value="(譜面データ)"&gt;<br>`,
         E_0031: `楽曲ファイルが未指定か、フォーマットが間違っています。(E-0031)<br>
         |musicUrl=****.mp3|`,
-        E_0032: `楽曲ファイルの読み込みに失敗しました。(E-0032)`,
         E_0033: `楽曲ファイルの読み込み中に接続がタイムアウトしました。(E-0033)`,
         E_0034: `楽曲ファイルの読み込み中にエラーが発生しました。(E-0034)`,
-        E_0035: `お使いのOSでは指定された楽曲フォーマットに対応していません。(E-0035)`,
         E_0041: `ファイル:{0}の読み込みに失敗しました。(E-0041)<br>`,
         E_0042: `{0}は0より大きい値を指定する必要があります。(E-0042)`,
         E_0051: `Displayオプションのデフォルト設定(XXXXChainOFF)で、<br>指定できない組み合わせが設定されています。(E-0051)`,
 
-        E_0101: `新しいキー:{0}の[color]が未定義です。(E-0101)<br>
-        |color{0}=0,1,0,1,0,2|`,
-        E_0102: `新しいキー:{0}の[chara]が未定義です。(E-0102)<br>
-        |chara{0}=arrowA,arrowB,arrowC,arrowD,arrowE,arrowF|`,
-        E_0103: `新しいキー:{0}の[stepRtn]が未定義です。(E-0103)<br>
-        |stepRtn{0}=0,45,-90,135,180,onigiri|`,
         E_0104: `新しいキー:{0}の[keyCtrl]が未定義です。(E-0104)<br>
         |keyCtrl{0}=S,D,E/R,F,Space,J,M/Comma,K,L|`,
 
@@ -2870,6 +3930,8 @@ const g_lang_msgInfoObj = {
         I_0003: `各譜面の明細情報をクリップボードにコピーしました！`,
         I_0004: `musicUrlが設定されていないため、無音モードで再生します`,
         I_0005: `正規のミラー譜面で無いため、ハイスコアは保存されません`,
+        I_0006: `ローカルストレージ情報をクリップボードにコピーしました！`,
+        I_0007: `オブジェクト情報をクリップボードにコピーしました！`,
     },
     En: {
         W_0001: `Your browser is not guaranteed to work.<br>
@@ -2881,7 +3943,10 @@ const g_lang_msgInfoObj = {
         Also, if you use "Fadein", it may be out of alignment.<br>
         It can be solved by converting the sound source file to encoded data (js, txt) or 
         operating it on the server. (W-0012)`,
-        W_0021: `Failed to copy the clipboard.`,
+        W_0031: `Safe Mode is being applied. <br>
+        The setting is set to not use local storage information <br>
+        and can be removed from Data Management. (W-0031)`,
+        W_0041: `The single music selection mode is enabled.<br><a href="{0}">[ Return to the original page ]</a>`,
 
         E_0011: `The artist name is not set. (E-0011)`,
         E_0012: `The song title information is not set. (E-0012)<br>
@@ -2896,20 +3961,12 @@ const g_lang_msgInfoObj = {
         &lt;input type="hidden" name="dos" id="dos" value="(Chart data)"&gt;<br>`,
         E_0031: `The music file is not set or the format is incorrect.(E-0031)<br>
         |musicUrl=****.mp3|`,
-        E_0032: `Failed to read the music file. (E-0032)`,
         E_0033: `The connection timed out while loading a music file. (E-0033)`,
         E_0034: `An error occurred while reading the music file. (E-0034)`,
-        E_0035: `Your OS does not support the specified music format. (E-0035)`,
         E_0041: `Failed to read file: {0}. (E-0041)<br>`,
         E_0042: `{0} must be greater than 0. (E-0042)`,
         E_0051: `In the default setting (XXXXChainOFF) of the Display option, <br>a combination that cannot be specified is set. (E-0051)`,
 
-        E_0101: `New key: {0} [color] is not set. (E-0101)<br>
-        |color{0}=0,1,0,1,0,2|`,
-        E_0102: `New key: {0} [chara] is not set. (E-0102)<br>
-        |chara{0}=arrowA,arrowB,arrowC,arrowD,arrowE,arrowF|`,
-        E_0103: `New key: {0} [stepRtn] is not set. (E-0103)<br>
-        |stepRtn{0}=0,45,-90,135,180,onigiri|`,
         E_0104: `New key: {0} [keyCtrl] is not set. (E-0104)<br>
         |keyCtrl{0}=S,D,E/R,F,Space,J,M/Comma,K,L|`,
 
@@ -2920,6 +3977,8 @@ const g_lang_msgInfoObj = {
         I_0003: `Charts information is copied to the clipboard!`,
         I_0004: `Play in silence mode because "musicUrl" is not set`,
         I_0005: `Highscore is not saved because not a regular mirrored chart.`,
+        I_0006: `Local storage information copied to clipboard!`,
+        I_0007: `Object information copied to clipboard!`,
     },
 };
 
@@ -2950,7 +4009,7 @@ const g_lblNameObj = {
     maker: `Maker`,
     artist: `Artist`,
 
-    dataReset: `Data Reset`,
+    dataReset: `Data Management`,
     dataSave: `Data Save`,
     clickHere: `Click Here!!`,
     comment: `Comment`,
@@ -2962,6 +4021,9 @@ const g_lblNameObj = {
     b_keyConfig: `KeyConfig`,
     b_play: `PLAY!`,
     b_reset: `Reset Key`,
+    b_safeMode: `Safe Mode -> `,
+    b_undo: `Restore`,
+    b_copyStorage: `Copy`,
     b_settings: `To Settings`,
     b_copy: `CopyResult`,
     b_tweet: `Post X`,
@@ -2969,6 +4031,7 @@ const g_lblNameObj = {
     b_retry: `Retry`,
     b_close: `Close`,
     b_cReset: `Reset`,
+    b_precond: `Precondition`,
 
     Difficulty: `Difficulty`,
     Speed: `Speed`,
@@ -2988,6 +4051,7 @@ const g_lblNameObj = {
     percent: `%`,
     pixel: `px`,
     filterLock: `Lock`,
+    settingSummary: `Setting Summary`,
 
     sc_speed: `←→`,
     sc_scroll: `R/<br>↑↓`,
@@ -3004,8 +4068,6 @@ const g_lblNameObj = {
     s_speed: `Overall`,
     s_boost: `Boost`,
     s_avg: `Avg.`,
-    s_avgDspeed: `AvgO)`,
-    s_avgDboost: `AvgB)`,
 
     s_apm: `APM`,
     s_time: `Time`,
@@ -3029,6 +4091,16 @@ const g_lblNameObj = {
     Appearance: `Appearance`,
     Opacity: `Opacity`,
     HitPosition: `HitPosition`,
+
+    PlayWindow: `PlayWindow`,
+    StepArea: `StepArea`,
+    FrzReturn: `FrzReturn`,
+    Shaking: `Shaking`,
+    Effect: `Effect`,
+    Camoufrage: `Camoufrage`,
+    Swapping: `Swapping`,
+    JudgRange: `JudgRange`,
+    AutoRetry: `AutoRetry`,
 
     'u_x': `x`,
     'u_%': `%`,
@@ -3077,6 +4149,8 @@ const g_lblNameObj = {
     'u_Easy': `Easy`,
 
     'u_FlatBar': `FlatBar`,
+    'u_Extreme': `Extreme`,
+    'u_Soft': `Soft`,
 
     'u_Visible': `Visible`,
     'u_Hidden': `Hidden`,
@@ -3085,13 +4159,59 @@ const g_lblNameObj = {
     'u_Sudden+': `Sudden+`,
     'u_Hid&Sud+': `Hid&Sud+`,
 
+    'u_Stairs': `Stairs`,
+    'u_R-Stairs': `R-Stairs`,
+    'u_Slope': `Slope`,
+    'u_R-Slope': `R-Slope`,
+    'u_Distorted': `Distorted`,
+    'u_R-Distorted': `R-Distorted`,
+    'u_SideScroll': `SideScroll`,
+    'u_R-SideScroll': `R-SideScroll`,
+
+    'u_Halfway': `Halfway`,
+    'u_2Step': `2Step`,
+    'u_Mismatched': `Mismatched`,
+    'u_R-Mismatched': `R-Mismatched`,
+    'u_X-Flower': `X-Flower`,
+    'u_Alt-Crossing': `Alt-Crossing`,
+
+    'u_X-Axis': `X-Axis`,
+    'u_Y-Axis': `Y-Axis`,
+    'u_Z-Axis': `Z-Axis`,
+    'u_XY-Axis': `XY-Axis`,
+    'u_XZ-Axis': `XZ-Axis`,
+    'u_YZ-Axis': `YZ-Axis`,
+
+    'u_Horizontal': `Horizontal`,
+    'u_Vertical': `Vertical`,
+    'u_X-Horizontal': `X-Horizontal`,
+    'u_X-Vertical': `X-Vertical`,
+    'u_Drunk': `Drunk`,
+    'u_S-Drunk': `S-Drunk`,
+
+    'u_Dizzy': `Dizzy`,
+    'u_Spin': `Spin`,
+    'u_Wave': `Wave`,
+    'u_Storm': `Storm`,
+    'u_Blinking': `Blinking`,
+    'u_Squids': `Squids`,
+
+    'u_Color': `Color`,
+    'u_Arrow': `Arrow`,
+
+    'u_Narrow': `Narrow`,
+    'u_Hard': `Hard`,
+    'u_ExHard': `ExHard`,
+
+    'u_Miss': `Miss`,
+    'u_Matari(Good)': `Matari(Good)`,
+    'u_Shakin(Great)': `Shakin(Great)`,
+    'u_Fast/Slow': `Fast/Slow`,
+
     'u_Speed': `Velocity`,
     'u_Density': `Density`,
     'u_ToolDif': `DifLevel`,
     'u_HighScore': `HighScore`,
-
-    'u_Main': `Main`,
-    'u_Replaced': `Replaced`,
 
     'u_Default': `Default`,
     'u_Type0': `Type0`,
@@ -3100,7 +4220,6 @@ const g_lblNameObj = {
     'u_Type3': `Type3`,
     'u_Type4': `Type4`,
 
-    ConfigType: `ConfigType`,
     ColorType: `ColorType`,
     ImgType: `ImgType`,
     ColorGroup: `ColorGr.`,
@@ -3154,11 +4273,16 @@ const g_linkObj = {
  */
 const g_lang_lblNameObj = {
     Ja: {
+        dataDeleteOFFDesc: `消去したいデータの種類を選んで「Reset」を押してください`,
+        dataDeleteONDesc: `セーフモード適用中はデータ消去は行えません。変更するにはセーフモードを解除してください`,
+
         kcDesc: `[{0}:スキップ / {1}:(代替キーのみ)キー無効化]`,
         kcShuffleDesc: `番号をクリックでシャッフルグループ、矢印をクリックでカラーグループを変更`,
         kcNoShuffleDesc: `矢印をクリックでカラーグループを変更`,
         sdDesc: `[クリックでON/OFFを切替、灰色でOFF]`,
-        kcShortcutDesc: `プレイ中ショートカット：「{0}」タイトルバック / 「{1}」リトライ`,
+        kcShortcutDesc: `プレイ中ショートカット：`,
+        kcShortcutDesc1: `タイトルバック: {0}`,
+        kcShortcutDesc2: `リトライ: {1}`,
         transKeyDesc: `別キーモードではキーコンフィグ、ColorType等は保存されません`,
         sdShortcutDesc: `Hid+/Sud+時ショートカット：「pageUp」カバーを上へ / 「pageDown」下へ`,
         resultImageDesc: `画像を右クリックしてコピーできます`,
@@ -3193,11 +4317,16 @@ const g_lang_lblNameObj = {
         securityUrl: `https://github.com/cwtickle/danoniplus/security/policy`,
     },
     En: {
+        dataDeleteOFFDesc: `Select the type of data you wish to delete and press "Reset".`,
+        dataDeleteONDesc: `Data erasure cannot be performed while safe mode is applied. <br>Please deactivate the safe mode to change the data.`,
+
         kcDesc: `[{0}:Skip / {1}:Key invalidation (Alternate keys only)]`,
         kcShuffleDesc: `Click the number to change the shuffle group, and click the arrow to change the color.`,
         kcNoShuffleDesc: `Click the arrow to change the color group.`,
         sdDesc: `[Click to switch, gray to OFF]`,
-        kcShortcutDesc: `Shortcut during play: "{0}" Return to title / "{1}" Retry the game`,
+        kcShortcutDesc: `Shortcut during play:`,
+        kcShortcutDesc1: `Return to title: {0}`,
+        kcShortcutDesc2: `Retry the game: {1}`,
         transKeyDesc: `Key config, Color type, etc. are not saved in another key mode`,
         sdShortcutDesc: `When "Hidden+" or "Sudden+" select, "pageUp" cover up / "pageDown" cover down`,
         resultImageDesc: `You can copy the image by right-clicking on it.`,
@@ -3251,7 +4380,16 @@ const g_lang_msgObj = {
         github: `Dancing☆Onigiri (CW Edition)のGitHubページへ移動します。`,
         security: `Dancing☆Onigiri (CW Edition)のサポート情報ページへ移動します。`,
 
-        dataResetConfirm: `この作品のローカル設定をクリアします。よろしいですか？\n(ハイスコアやAdjustment等のデータが全てクリアされます)`,
+        environment: `${g_settings.environments.map(v => toCapitalize(v)).join(`, `)}の設定を初期化します。`,
+        highscores: `全譜面のハイスコアを初期化します。\n個別に初期化したい場合はSettings画面より行ってください。`,
+        customKey: `カスタムキーに関する全ての保存データを消去します。\n下記のKeyDataから個別に消去可能できないときに使用してください。`,
+        others: `標準以外に関する保存データを消去します。`,
+        keyTypes: `Key: {0} の保存データ（個別の色設定を除く）を消去します。`,
+
+        dataResetConfirm: `選択したローカル設定をクリアします。よろしいですか？`,
+        dataRestoreConfirm: `ローカル設定を前回の状態に戻します（１回限り）。よろしいですか？\n消去した設定によっては今の設定が上書きされることがあります。`,
+        safeModeONConfirm: `セーフモードを解除して、ローカルストレージ情報を利用します。\nよろしいですか？`,
+        safeModeOFFConfirm: `セーフモードを設定して、ローカルストレージを使わずにリロードします。\nよろしいですか？`,
         keyResetConfirm: `キーを初期配置に戻します。よろしいですか？`,
         highscResetConfirm: `この譜面のハイスコアを消去します。よろしいですか？`,
         colorCopyConfirm: `フリーズアローの配色を矢印色に置き換えます\n(通常・ヒット時双方を置き換えます)。よろしいですか？`,
@@ -3273,7 +4411,7 @@ const g_lang_msgObj = {
         graph: `譜面密度や速度変化状況、\n譜面の難易度などの情報を表示します。`,
         dataSave: `ハイスコア、リバース設定、\nキーコンフィグの保存の有無を設定します。`,
         toDisplay: `プレイ画面上のオブジェクトの\n表示・非表示（一部透明度）を設定します。`,
-        toSettings: `SETTINGS画面へ戻ります。`,
+        toSettings: `その他の拡張設定を設定します。`,
 
         d_stepzone: `ステップゾーンの表示`,
         d_judgment: `判定キャラクタ・コンボの表示`,
@@ -3289,6 +4427,21 @@ const g_lang_msgObj = {
         d_arroweffect: `矢印・フリーズアローモーションの有効化設定`,
         d_special: `作品固有の特殊演出の有効化設定`,
 
+        playWindow: `ステップゾーン及び矢印の位置を全体的に回転する等の設定です。\n[Stairs/Slope] ステップゾーンを階段状にします\n[Distorted] 画面を歪ませます\n` +
+            `[SideScroll] 横スクロールモードになります`,
+        stepArea: `ステップゾーンの位置を変更します。\n[Halfway] ステップゾーンが中央に表示されます\n[2Step] ステップゾーンが2段に分かれて流れてきます\n` +
+            `[Mismatched/R-Mismatched] スクロールの向きが上下で異なる方向に流れます\n` +
+            `[X-Flower] レーンが花びらのように広がります\n[Alt-Crossing] レーンが交互に違う方向から流れます`,
+        frzReturn: `フリーズアロー到達時及び矢印の回復判定が100の倍数に達するごとに、X/Y/Z軸のいずれかに回転します`,
+        shaking: `ステップゾーン及び矢印を揺らす設定です。\n[Horizontal] 横方向に揺らします\n[Vertical] 縦方向に揺らします\n` +
+            `[X-Horizontal] レイヤーごとに左右交互の向きで横に揺らします\n[X-Vertical] レイヤーごとに上下交互の向きで縦に揺らします\n[Drunk] 画面全体を上下左右ランダムに揺らします。画面酔いに注意してください\n` +
+            `[S-Drunk] 画面全体を上下左右ランダムに揺らし、さらにレイヤーごとに上下左右に揺らします`,
+        effect: `矢印・フリーズアローにエフェクトをかけます。\n[Dizzy/Spin] 矢印が回転します\n[Wave/Storm] 矢印の軌道が左右に揺れます\n[Blinking] 矢印が点滅します\n[Squids] 矢印が伸び縮みします`,
+        camoufrage: `ステップの見た目が配置は同じでランダムに変わります。`,
+        swapping: `ステップゾーンの位置をグループ単位で入れ替えます。`,
+        judgRange: `判定の許容範囲を設定します。\n[Normal] 通常、[Narrow/Hard] 辛判定、[ExHard] 激辛判定`,
+        autoRetry: `自動リトライの条件を設定します。\n[Miss] ミス時、[Matari] マターリ時、[Shakin] シャキン時、[FS] Fast/Slow発生時`,
+
         lnkSpeedG: `譜面の進行別の速度変化状況を表示`,
         lnkDensityG: `譜面の密度状況を表示`,
         lnkToolDifG: `譜面の難易度、矢印・フリーズアローの分布状況を表示`,
@@ -3301,7 +4454,6 @@ const g_lang_msgObj = {
         opacity: `判定キャラクタ、コンボ数、Fast/Slow、Hidden+/Sudden+の\n境界線表示の透明度を設定します。`,
         hitPosition: `判定位置にズレを感じる場合、\n数値を変えることで判定の中央位置を1px単位(プラス:手前, マイナス:奥側)で調整することができます。\n早押し・遅押し傾向にある場合に使用します。`,
 
-        configType: `キーコンフィグ対象を切り替えます。\n[Main] メインキーのみ, [Replaced] 代替キーのみ, [ALL] 全て`,
         colorType: `矢印・フリーズアローの配色セットをあらかじめ定義されたリストから選択できます。\nType1～4選択時は色変化が自動でOFFになり、カラーピッカーから好きな色に変更できます。\n[Type0] グラデーション切替, [Type1～4] デフォルトパターン`,
         imgType: `矢印・フリーズアローなどのオブジェクトの見た目を変更します。`,
         colorGroup: `矢印・フリーズアロー色グループの割り当てパターンを変更します。`,
@@ -3321,7 +4473,16 @@ const g_lang_msgObj = {
         github: `Go to the GitHub page of Dancing Onigiri "CW Edition".`,
         security: `Go to the support information page for Dancing Onigiri "CW Edition".`,
 
-        dataResetConfirm: `Delete the local settings in this game. Is it OK?\n(High score, adjustment, volume and some settings will be initialized)`,
+        environment: `Initialize ${g_settings.environments.map(v => toCapitalize(v)).join(`, `)} settings.`,
+        highscores: `Initializes the high score of all charts. \nIf you want to initialize each chart individually, \nplease do so from the Highscore view in the Settings screen.`,
+        customKey: `Delete stored data related to all custom keymodes. \nUse this option when you cannot delete individual KeyData from the following KeyData.`,
+        others: `Delete non-standard stored data.`,
+        keyTypes: `Deletes the stored data (except color settings) for Key: {0}.`,
+
+        dataResetConfirm: `Delete the selected local settings. Is it OK?`,
+        dataRestoreConfirm: `Restore local settings to previous state (one time only). Is it OK?\nSome deleted settings may overwrite the current settings.`,
+        safeModeONConfirm: `Exit safe mode and use local storage information. Is it OK?`,
+        safeModeOFFConfirm: `Set safe mode and reload without local storage. Is it OK?`,
         keyResetConfirm: `Resets the assigned key to the initial state. Is it OK?`,
         highscResetConfirm: `Erases the high score for this chart. Is it OK?`,
         colorCopyConfirm: `Replace freeze arrow color scheme with arrow color\n(replace both normal and hit). Is this OK?`,
@@ -3343,7 +4504,7 @@ const g_lang_msgObj = {
         graph: `Displays detailed information about the chart, such as chart's density status, sequences' velocity changes, and chart's difficulty.`,
         dataSave: `Set whether to save the high score, reverse setting, and key config.`,
         toDisplay: `Set the display or non-display (partial transparency) of objects on the play screen.`,
-        toSettings: `Return to the SETTINGS screen.`,
+        toSettings: `Set other extended settings.`,
 
         d_stepzone: `Display step zone`,
         d_judgment: `Display judgment and combo counts`,
@@ -3359,6 +4520,22 @@ const g_lang_msgObj = {
         d_arroweffect: `Enable sequences' animations`,
         d_special: `Enable setting of special effects to the work`,
 
+        playWindow: `This is the setting for overall rotation of the step zone and arrow position, etc.\n[Stairs/Slope] The step zone is in a staircase shape.\n[Distorted] Distorts the screen.\n` +
+            `[SideScroll] It becomes a side scroll mode.`,
+        stepArea: `Change the position of the step zone.\n[Halfway] Step zones are centered.\n[2Step] Step zones are divided into two layers.\n` +
+            `[Mismatched/R-Mismatched] Scroll direction flows in different directions up and down.\n` +
+            `[X-Flower] Lanes spread out like flower petals.\n[Alt-Crossing] Lanes flow from different directions alternately.`,
+        frzReturn: `When the Freeze Arrow is reached, and every time the arrow's recovery judgment \nreaches a multiple of 100, it will rotate on either the X, Y, or Z axis.`,
+        shaking: `This sets shaking for the step zone and arrows.\n[Horizontal] Shakes horizontally.\n[Vertical] Shakes vertically.\n` +
+            `[X-Horizontal] Per-layer shaking with alternating left/right direction by layer.\n[X-Vertical] Per-layer shaking with alternating up/down direction by layer.\n` +
+            `[Drunk] Shakes the entire screen randomly in all directions (may cause motion sickness).\n` +
+            `[S-Drunk] Shakes the entire screen randomly in all directions, and also shakes each layer randomly in all directions.`,
+        effect: `Applies effects to the arrows and freeze arrows.\n[Dizzy/Spin] Arrows rotate.\n[Wave/Storm] Swing from left to right.\n[Blinking] Arrows blink.\n[Squids] Arrows stretch and shrink.`,
+        camoufrage: `The appearance of the steps changes randomly with the same placement.`,
+        swapping: `Replaces the position of step zones on a group-by-group basis.`,
+        judgRange: `Set the allowable range of judgment.\n[Normal] Normal judgment, [Narrow/Hard] Hard judgment, [ExHard] Very hard judgment`,
+        autoRetry: `Set the conditions for automatic retry.\n[Miss] When missed, [Matari] When good, [Shakin] When great, [FS] When Fast/Slow occurs`,
+
         lnkSpeedG: `Displays the speed change status by progression of the chart.`,
         lnkDensityG: `Displays the density status of the chart.`,
         lnkToolDifG: `Displays the difficulty level of the chart and the distribution of arrows and freeze arrows.`,
@@ -3371,7 +4548,6 @@ const g_lang_msgObj = {
         opacity: `Set the transparency of some objects such as judgment, combo counts, fast and slow`,
         hitPosition: `If you feel a discrepancy in the judgment position, \nyou can adjust the center position of the judgment in 1px increments \n (plus: in front, minus: at the back) by changing the numerical value. \nUse this function when there is a tendency to push too fast or too slow.`,
 
-        configType: `Switch the key config target.\n[Main] main keys only, [Replaced] alternate keys only, [ALL] all keys`,
         colorType: `Change the color scheme set for arrows and freeze-arrows from the predefined set.\nWhen Type1 to 4 is selected, color change is automatically turned off and can be changed to any color from the color picker.\n[Type0] Switch the sequences color gradations, [Type1～4] default color scheme`,
         imgType: `Change the appearance of sequences.`,
         colorGroup: `Change the sequences color group assignment pattern.`,
@@ -3392,8 +4568,10 @@ const g_lang_msgObj = {
  */
 const g_errMsgObj = {
     title: [],
+    dataMgt: [],
     option: [],
     settingsDisplay: [],
+    exSetting: [],
     loading: [],
     main: [],
     result: [],
@@ -3407,17 +4585,27 @@ const g_customJsObj = {
     preTitle: [],
     title: [],
     titleEnterFrame: [],
+    musicSelect: [],
+    dataMgt: [],
+    precondition: [],
     option: [],
     difficulty: [],
     settingsDisplay: [],
+    exSetting: [],
     keyconfig: [],
 
     preloading: [],
     loading: [],
     progress: [],
     main: [],
+
+    makeArrow: [],
+    makeFrzArrow: [],
+
     dummyArrow: [],
     dummyFrz: [],
+
+    appearanceFilter: [],
 
     judg_ii: [],
     judg_shakin: [],
@@ -3441,8 +4629,11 @@ const g_customJsObj = {
  */
 const g_skinJsObj = {
     title: [],
+    dataMgt: [],
+    precondition: [],
     option: [],
     settingsDisplay: [],
+    exSetting: [],
     keyconfig: [],
 
     preloading: [],
